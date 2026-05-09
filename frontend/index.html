@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Pretty To-Do List</title>
+
+  <link rel="stylesheet" href="style.css">
+
+  <!-- GOOGLE FONT -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <!-- LUCIDE ICONS -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+</head>
+
+<body>
+
+  <!-- BACKGROUND -->
+  <div class="bg-circle one"></div>
+  <div class="bg-circle two"></div>
+  <div class="bg-circle three"></div>
+
+  <!-- AUTHENTICATION PAGE -->
+  <div class="auth-container" id="authPage">
+    <!-- LOGIN CARD -->
+    <div class="auth-card" id="loginCard">
+      <div class="auth-header">
+        <h1>Welcome Back</h1>
+        <p>Organize your daily tasks beautifully</p>
+      </div>
+
+      <div class="auth-form">
+        <div class="input-group">
+          <label for="loginUsername">Username</label>
+          <div class="input-wrapper">
+            <i data-lucide="user"></i>
+            <input type="text" id="loginUsername" placeholder="Your username">
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="loginPassword">Password</label>
+          <div class="input-wrapper">
+            <i data-lucide="lock"></i>
+            <input type="password" id="loginPassword" placeholder="Your password">
+          </div>
+        </div>
+
+        <button class="auth-btn" onclick="login()">
+          <span>Login</span>
+          <i data-lucide="arrow-right"></i>
+        </button>
+      </div>
+
+      <div class="auth-footer">
+        <p>Don't have an account? <a href="#" onclick="showSignup()">Sign Up</a></p>
+      </div>
+    </div>
+
+    <!-- SIGNUP CARD (Hidden initially) -->
+    <div class="auth-card" id="signupCard" style="display: none;">
+      <div class="auth-header">
+        <h1>Create Account</h1>
+        <p>Start your productivity journey today</p>
+      </div>
+
+      <div class="auth-form">
+        <div class="input-group">
+          <label for="signupUsername">Username</label>
+          <div class="input-wrapper">
+            <i data-lucide="user"></i>
+            <input type="text" id="signupUsername" placeholder="Choose a username">
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="signupEmail">Email</label>
+          <div class="input-wrapper">
+            <i data-lucide="mail"></i>
+            <input type="email" id="signupEmail" placeholder="Your email address">
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="signupPassword">Password</label>
+          <div class="input-wrapper">
+            <i data-lucide="lock"></i>
+            <input type="password" id="signupPassword" placeholder="Create a password">
+          </div>
+        </div>
+
+        <button class="auth-btn" onclick="signup()">
+          <span>Sign Up</span>
+          <i data-lucide="user-plus"></i>
+        </button>
+      </div>
+
+      <div class="auth-footer">
+        <p>Already have an account? <a href="#" onclick="showLogin()">Login</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div class="app" id="app" style="display:none;">
+
+    <!-- TOP BAR (Full Width) -->
+    <div class="top-bar-fullscreen">
+      <h1 class="luxe-title">DailyDots</h1>
+
+      <!-- THIRUKKURAL (TRADITIONAL FORMAT) -->
+      <div class="kural-highlight-top">
+        <p class="kural-text-small">
+          தெய்வத்தான் ஆகாது எனினும் முயற்சி<br>
+          தன் மெய்வருத்தக் கூலிதரும்<br>
+          <span class="kural-author-small">— திருவள்ளுவர்</span>
+        </p>
+      </div>
+
+      <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+
+    <!-- CENTERED CONTENT -->
+    <div class="main-content">
+
+      <!-- INPUT SECTION -->
+      <div class="input-section">
+        <input type="text" id="taskInput" placeholder="What needs to be done?" maxlength="50">
+        <input type="date" id="deadline">
+        <button class="add-task-btn" onclick="addTask()">
+          <i data-lucide="plus"></i>
+          <span>Add Task</span>
+        </button>
+        <select id="filter" onchange="renderTasks()">
+          <option value="all">All</option>
+          <option value="week">This Week</option>
+          <option value="later">Later</option>
+        </select>
+      </div>
+
+      <!-- TASK CONTAINER -->
+      <div class="orderly-tasks">
+
+        <!-- URGENT SECTION (Hidden if empty) -->
+        <div id="urgentColumn" style="display: none;">
+          <h3 class="section-title">Urgent / Today</h3>
+          <div id="urgentList" class="vertical-list"></div>
+        </div>
+
+        <!-- REGULAR SECTION -->
+        <div id="todoColumn">
+          <h3 class="section-title">Upcoming Tasks</h3>
+          <div id="todoList" class="vertical-list"></div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    lucide.createIcons();
+  </script>
+
+</body>
+
+</html>
