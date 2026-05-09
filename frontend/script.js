@@ -25,7 +25,7 @@ async function signup() {
   }
 
   try {
-    const res = await fetch("http://localhost:5000/signup", {
+    const res = await fetch("https://dailydots-g1iy.onrender.comsignup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, email, password })
@@ -56,7 +56,7 @@ async function login() {
   }
 
   try {
-    const res = await fetch("http://localhost:5000/login", {
+    const res = await fetch("https://dailydots-g1iy.onrender.comlogin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password })
@@ -93,7 +93,7 @@ function initApp() {
 async function loadTasks() {
   const userId = localStorage.getItem("userId");
   try {
-    const res = await fetch(`http://localhost:5000/tasks?userId=${userId}`);
+    const res = await fetch(`https://dailydots-g1iy.onrender.comtasks?userId=${userId}`);
     tasks = await res.json();
     renderTasks();
   } catch (err) {
@@ -122,7 +122,7 @@ async function addTask() {
   };
 
   try {
-    await fetch("http://localhost:5000/tasks", {
+    await fetch("https://dailydots-g1iy.onrender.comtasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(task)
@@ -215,7 +215,7 @@ function renderTasks() {
 async function toggleComplete(id) {
   const task = tasks.find(t => t._id === id);
   try {
-    await fetch(`http://localhost:5000/tasks/${id}`, {
+    await fetch(`https://dailydots-g1iy.onrender.comtasks/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ completed: !task.completed })
@@ -229,7 +229,7 @@ async function toggleComplete(id) {
 async function deleteTask(id) {
   if (!confirm("Delete this task? 🌸")) return;
   try {
-    await fetch(`http://localhost:5000/tasks/${id}`, { method: "DELETE" });
+    await fetch(`https://dailydots-g1iy.onrender.comtasks/${id}`, { method: "DELETE" });
     loadTasks();
   } catch (err) {
     console.error(err);
