@@ -6,8 +6,8 @@ const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-const User = require("./models/User");
-const Task = require("./models/Task");
+const User = require("./models/user");
+const Task = require("./models/task");
 
 const app = express();
 
@@ -18,16 +18,16 @@ app.use(express.json());
 mongoose.connect(process.env.MONGO_URL, {
   serverSelectionTimeoutMS: 5000 // 5 seconds timeout
 })
-.then(() => console.log("✅ MongoDB Connected Successfully"))
-.catch(err => {
-  console.error("❌ MongoDB Connection Error:");
-  if (err.message.includes("IP is not whitelisted") || err.name === "MongooseServerSelectionError") {
-    console.error("👉 YOUR IP IS NOT WHITELISTED in MongoDB Atlas.");
-    console.error("   Please go to Atlas -> Network Access -> Add Current IP.");
-  } else {
-    console.error(err);
-  }
-});
+  .then(() => console.log("✅ MongoDB Connected Successfully"))
+  .catch(err => {
+    console.error("❌ MongoDB Connection Error:");
+    if (err.message.includes("IP is not whitelisted") || err.name === "MongooseServerSelectionError") {
+      console.error("👉 YOUR IP IS NOT WHITELISTED in MongoDB Atlas.");
+      console.error("   Please go to Atlas -> Network Access -> Add Current IP.");
+    } else {
+      console.error(err);
+    }
+  });
 
 /* SIGNUP */
 app.post("/signup", async (req, res) => {
