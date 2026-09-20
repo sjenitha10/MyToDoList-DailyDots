@@ -8,6 +8,7 @@ const jwt = require("jsonwebtoken");
 
 const User = require("./models/user");
 const Task = require("./models/task");
+const Routine = require("./models/routine");
 
 const app = express();
 
@@ -95,6 +96,25 @@ app.post("/login", async (req, res) => {
       process.env.JWT_SECRET
     );
 
+    // STREAK LOGIC
+    const today = new Date().toISOString().split("T")[0];
+    if (user.lastActiveDate !== today) {
+      if (!user.lastActiveDate) {
+        user.streak = 1;
+      } else {
+        const last = new Date(user.lastActiveDate);
+        const curr = new Date(today);
+        const diffDays = Math.floor((curr - last) / (1000 * 60 * 60 * 24));
+        if (diffDays === 1) {
+          user.streak += 1;
+        } else if (diffDays > 1) {
+          user.streak = 1; // Missed a day, reset streak
+        }
+      }
+      user.lastActiveDate = today;
+      await user.save();
+    }
+
     res.json({
       token,
       userId: user._id,
@@ -103,6 +123,26 @@ app.post("/login", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+/* GET PROFILE */
+app.get("/profile/:id", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const totalCompleted = await Task.countDocuments({ userId: req.params.id, completed: true });
+
+    res.json({
+      username: user.username,
+      email: user.email,
+      streak: user.streak,
+      memberSince: user.createdAt,
+      totalCompleted
+    });
+  } catch (err) {
+    res.status(500).json(err);
   }
 });
 
@@ -149,6 +189,108 @@ app.put("/tasks/:id", async (req, res) => {
   );
 
   res.json(updated);
+});
+
+/* ----------------- ROUTINES ----------------- */
+
+app.get("/routines", async (req, res) => {
+  try {
+    const userId = req.query.userId;
+    const routines = await Routine.find({ userId });
+    
+    const today = new Date().toISOString().split("T")[0];
+    
+    for (let routine of routines) {
+      let updated = false;
+      const createdDate = new Date(routine.createdAt).toISOString().split("T")[0];
+      const start = new Date(createdDate);
+      const end = new Date(today);
+      
+      const historyMap = {};
+      routine.history.forEach(h => historyMap[h.date] = h.status);
+      
+      const newHistory = [];
+      let currentStreak = 0;
+      
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split("T")[0];
+        let status = historyMap[dateStr];
+        
+        if (!status) {
+          status = (dateStr === today) ? 'pending' : 'missed';
+          updated = true;
+        }
+        
+        newHistory.push({ date: dateStr, status });
+        
+        if (status === 'completed') {
+          currentStreak++;
+        } else if (status === 'missed') {
+          currentStreak = 0;
+        }
+      }
+      
+      if (updated || routine.currentStreak !== currentStreak) {
+        routine.history = newHistory;
+        routine.currentStreak = currentStreak;
+        if (currentStreak > routine.longestStreak) {
+          routine.longestStreak = currentStreak;
+        }
+        routine.totalCompleted = newHistory.filter(h => h.status === 'completed').length;
+        routine.missedDays = newHistory.filter(h => h.status === 'missed').length;
+        await routine.save();
+      }
+    }
+    
+    res.json(routines);
+  } catch (err) {
+    res.status(500).json(err);
+  }
+});
+
+app.post("/routines", async (req, res) => {
+  try {
+    const routine = new Routine(req.body);
+    const today = new Date().toISOString().split("T")[0];
+    routine.history.push({ date: today, status: 'pending' });
+    await routine.save();
+    res.json(routine);
+  } catch(err) {
+    res.status(500).json(err);
+  }
+});
+
+app.put("/routines/:id/complete", async (req, res) => {
+  try {
+    const routine = await Routine.findById(req.params.id);
+    const today = new Date().toISOString().split("T")[0];
+    
+    const todayEntry = routine.history.find(h => h.date === today);
+    if (todayEntry) {
+      if (todayEntry.status === 'pending') {
+        todayEntry.status = 'completed';
+        routine.currentStreak++;
+        if (routine.currentStreak > routine.longestStreak) {
+          routine.longestStreak = routine.currentStreak;
+        }
+        routine.totalCompleted++;
+      }
+    } else {
+      routine.history.push({ date: today, status: 'completed' });
+      routine.currentStreak++;
+      routine.totalCompleted++;
+    }
+    
+    await routine.save();
+    res.json(routine);
+  } catch(err) {
+    res.status(500).json(err);
+  }
+});
+
+app.delete("/routines/:id", async (req, res) => {
+  await Routine.findByIdAndDelete(req.params.id);
+  res.json({ message: "Deleted" });
 });
 
 /* SERVER */
