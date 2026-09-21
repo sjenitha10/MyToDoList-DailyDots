@@ -118,6 +118,15 @@ function switchView(view) {
     if(document.getElementById("navAnalytics")) document.getElementById("navAnalytics").classList.add("active");
     renderAnalytics();
   }
+  
+  // Close mobile sidebar if open
+  const sidebar = document.getElementById("sidebar");
+  const overlay = document.getElementById("mobileOverlay");
+  if (sidebar && sidebar.classList.contains("mobile-open")) {
+    sidebar.classList.remove("mobile-open");
+    overlay.classList.remove("active");
+  }
+
   lucide.createIcons();
 }
 
@@ -138,6 +147,16 @@ function toggleProfilePopup() {
   const popup = document.getElementById('profilePopup');
   if (popup) {
     popup.classList.toggle('active');
+  }
+}
+
+// MOBILE MENU LOGIC
+function toggleMobileMenu() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('mobileOverlay');
+  if (sidebar && overlay) {
+    sidebar.classList.toggle('mobile-open');
+    overlay.classList.toggle('active');
   }
 }
 
@@ -282,16 +301,25 @@ function renderTasks() {
   const filterPriority = document.getElementById("filterPriority")?.value || "all";
   
   const overdueList = document.getElementById("overdueTasks");
+  const routineList = document.getElementById("routineTasks");
   const todayList = document.getElementById("todayTasks");
   const upcomingList = document.getElementById("upcomingTasks");
+  const completedList = document.getElementById("completedTasks");
+
   const overdueColumn = document.getElementById("overdueColumn");
+  const routineColumn = document.getElementById("routinesColumn");
+  const todayColumn = document.getElementById("todayColumn");
+  const upcomingColumn = document.getElementById("upcomingColumn");
+  const completedColumn = document.getElementById("completedColumn");
   const noTasksMessage = document.getElementById("noTasksMessage");
 
   if(overdueList) overdueList.innerHTML = "";
+  if(routineList) routineList.innerHTML = "";
   if(todayList) todayList.innerHTML = "";
   if(upcomingList) upcomingList.innerHTML = "";
+  if(completedList) completedList.innerHTML = "";
 
-  let counts = { overdue: 0, today: 0, upcoming: 0 };
+  let counts = { overdue: 0, routines: 0, today: 0, upcoming: 0, completed: 0 };
 
   tasks.forEach(task => {
     const today = new Date();
@@ -309,9 +337,19 @@ function renderTasks() {
 
     if (task.completed) {
       if (!task.completedAt) return; // Hide immediately if no timestamp
-      const completedTime = new Date(task.completedAt).getTime();
-      if (new Date().getTime() - completedTime > 15 * 60 * 1000) {
-        return; // Hide completed tasks older than 15 mins from grid
+      const completedDate = new Date(task.completedAt);
+      completedDate.setHours(0, 0, 0, 0);
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0);
+      
+      // Hide if completed on a previous day
+      if (completedDate.getTime() < todayDate.getTime()) {
+        return;
+      }
+
+      const completedTimeMs = new Date(task.completedAt).getTime();
+      if (filterStatus !== "completed" && new Date().getTime() - completedTimeMs > 15 * 60 * 1000) {
+        return; // Hide completed tasks older than 15 mins from grid unless explicitly filtering by completed
       }
     }
 
@@ -340,7 +378,10 @@ function renderTasks() {
       </div>
     `;
 
-    if (diffDays < 0 && !task.completed) {
+    if (task.completed) {
+      if(completedList) completedList.appendChild(div);
+      counts.completed++;
+    } else if (diffDays < 0) {
       if(overdueList) overdueList.appendChild(div);
       counts.overdue++;
     } else if (diffDays === 0) {
@@ -352,7 +393,7 @@ function renderTasks() {
     }
   });
 
-  // Render Routines in Today Column if not completed
+  // Render Routines in Routines Column if not completed
   if (typeof routines !== 'undefined' && filterStatus !== "completed") {
     const todayStr = new Date().toISOString().split("T")[0];
     routines.forEach(r => {
@@ -371,7 +412,6 @@ function renderTasks() {
           if(!e.target.closest('button')) switchView('routines');
         };
         div.innerHTML = `
-          <div class="priority-dot dot-medium"></div>
           <div style="flex:1;">
             <strong>${r.icon} ${r.title}</strong>
             <div style="margin-top: 8px;">
@@ -384,22 +424,32 @@ function renderTasks() {
             </button>
           </div>
         `;
-        if(todayList) todayList.appendChild(div);
-        counts.today++;
+        if(routineList) routineList.appendChild(div);
+        counts.routines++;
       }
     });
   }
 
-  const todayColumn = document.getElementById("todayColumn");
-  const upcomingColumn = document.getElementById("upcomingColumn");
-
   if(overdueColumn) overdueColumn.style.display = counts.overdue > 0 ? "block" : "none";
+  if(routineColumn) routineColumn.style.display = counts.routines > 0 ? "block" : "none";
   if(todayColumn) todayColumn.style.display = counts.today > 0 ? "block" : "none";
   if(upcomingColumn) upcomingColumn.style.display = counts.upcoming > 0 ? "block" : "none";
+  if(completedColumn) completedColumn.style.display = counts.completed > 0 ? "block" : "none";
 
-  const totalCounts = counts.overdue + counts.today + counts.upcoming;
+  const totalCounts = counts.overdue + counts.routines + counts.today + counts.upcoming + counts.completed;
   if (noTasksMessage) {
     if (totalCounts === 0) {
+      if (tasks.length === 0) {
+        noTasksMessage.innerHTML = `
+          <p style="font-size:24px; color:var(--text-muted); font-weight:600;">Welcome!</p>
+          <p style="font-size:15px; color:var(--text-muted); margin-top:8px;">Add your first task to get started.</p>
+        `;
+      } else {
+        noTasksMessage.innerHTML = `
+          <p style="font-size:24px; color:var(--text-muted); font-weight:600;">You're all caught up!</p>
+          <p style="font-size:15px; color:var(--text-muted); margin-top:8px;">Enjoy your free time or add a new task.</p>
+        `;
+      }
       noTasksMessage.style.display = "block";
     } else {
       noTasksMessage.style.display = "none";
@@ -508,10 +558,10 @@ function renderOverview() {
   if (dashRoutineTitle && dashRoutineSubtext) {
     if (routinesTotal === 0) {
       dashRoutineTitle.textContent = "No routines set yet.";
-      dashRoutineSubtext.textContent = "Go to the Daily Routines tab to create some habits!";
+      dashRoutineSubtext.textContent = "Go to the Routines tab to create some habits!";
     } else if (routinesCompleted === routinesTotal) {
       dashRoutineTitle.textContent = `${routinesCompleted} of ${routinesTotal} routines completed!`;
-      dashRoutineSubtext.textContent = "Great job! You've finished all your habits for today. 🎉";
+      dashRoutineSubtext.textContent = "Great job! You've finished all your habits for today.";
     } else {
       dashRoutineTitle.textContent = `${routinesCompleted} routine${routinesCompleted !== 1 ? 's' : ''} completed.`;
       dashRoutineSubtext.textContent = "Hurry up to complete the other ones!";
@@ -534,7 +584,9 @@ function renderOverview() {
     }
 
     if (upcoming.length === 0) {
-      upcomingWidget.innerHTML = `<p style="color:var(--text-muted); font-size:14px; text-align:center; margin-top:10px;">No tasks</p>`;
+      upcomingWidget.innerHTML = `<div style="text-align:center; padding:30px 10px;">
+        <p style="font-size:16px; color:var(--text-muted); font-weight:500;">No upcoming tasks</p>
+      </div>`;
     } else {
       upcoming.slice(0, 2).forEach(t => {
         upcomingWidget.innerHTML += `
@@ -599,11 +651,6 @@ function openTaskDetails(id) {
   document.getElementById("panelEditBtn").onclick = () => editTask(id);
   document.getElementById("panelDeleteBtn").onclick = () => { deleteTask(id); closeTaskDetails(); };
   
-  document.getElementById("panelFocusBtn").onclick = () => {
-    closeTaskDetails();
-    startFocusSession(id);
-  };
-
   document.getElementById("taskDetailsOverlay").style.display = "block";
   setTimeout(() => {
     document.getElementById("taskDetailsPanel").style.right = "0";
@@ -640,10 +687,12 @@ function renderRoutines() {
   list.innerHTML = "";
   
   if (routines.length === 0) {
-    list.innerHTML = `<p style="color:var(--text-muted); text-align:center; margin-top:20px;">No routines added yet. Click "+ New Routine" to start building habits!</p>`;
+    list.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:50px 20px;">
+      <p style="font-size:24px; color:var(--text-muted); font-weight:600;">Ready to set some daily goals?</p>
+    </div>`;
     document.getElementById("routinesProgressText").textContent = `0/0`;
     document.getElementById("routinesProgressBar").style.width = `0%`;
-    document.getElementById("routinesProgressMsg").textContent = `You've completed 0 of your 0 routines today!`;
+    document.getElementById("routinesProgressMsg").textContent = `Ready to set some daily goals?`;
     return;
   }
   
@@ -894,6 +943,7 @@ function renderFullCalendar() {
   }
   
   const today = new Date();
+  const monthHolidays = [];
   
   // Current month days
   for(let i = 1; i <= daysInMonth; i++) {
@@ -907,7 +957,8 @@ function renderFullCalendar() {
     
     // Check for holiday
     if(southIndianHolidays[mdStr]) {
-      eventsHtml += `<div class="calendar-event calendar-holiday" title="${southIndianHolidays[mdStr]}">${southIndianHolidays[mdStr]}</div>`;
+      eventsHtml += `<div class="calendar-event calendar-holiday" title="${southIndianHolidays[mdStr]}"><span class="holiday-desktop">${southIndianHolidays[mdStr]}</span><span class="holiday-mobile">★ Holiday</span></div>`;
+      if (typeof monthHolidays !== 'undefined') monthHolidays.push({ date: i, name: southIndianHolidays[mdStr] });
     }
     
     // Check for tasks
@@ -917,7 +968,7 @@ function renderFullCalendar() {
     }
     
     dateHtml += `
-      <div class="calendar-day-cell ${isToday ? 'today' : ''}" onclick="switchView('tasks')">
+      <div class="calendar-day-cell ${isToday ? 'today' : ''}">
         <div class="calendar-date">${i}</div>
         <div style="flex:1; display:flex; flex-direction:column; gap:2px; overflow-y:auto;">
           ${eventsHtml}
@@ -934,6 +985,23 @@ function renderFullCalendar() {
   }
   
   grid.innerHTML = dateHtml;
+
+  // Render Holidays List Below Calendar
+  const holidaysList = document.getElementById("calendarHolidaysList");
+  if(holidaysList) {
+    if(monthHolidays.length > 0) {
+      let html = `<h4 style="font-size:16px; color:var(--text-main); margin-bottom:8px;">Holidays in ${currentMonth.toLocaleDateString('en-US', { month: 'long' })}</h4>`;
+      monthHolidays.forEach(h => {
+        html += `<div style="background:var(--card-bg); border:1px solid var(--border); padding:12px 16px; border-radius:12px; display:flex; align-items:center; gap:12px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                   <div style="background:var(--primary); color:#fff; width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex-shrink:0;">${h.date}</div>
+                   <div style="font-size:14px; color:var(--text-main); font-weight:600;">${h.name}</div>
+                 </div>`;
+      });
+      holidaysList.innerHTML = html;
+    } else {
+      holidaysList.innerHTML = `<p style="color:var(--text-muted); font-size:14px; font-style:italic;">No holidays this month.</p>`;
+    }
+  }
 }
 
 // --- ANALYTICS LOGIC ---

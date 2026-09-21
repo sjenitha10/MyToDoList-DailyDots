@@ -101,6 +101,13 @@
             </div>
           </div>
           <div class="input-group">
+            <label for="signupEmail">Email</label>
+            <div class="input-wrapper">
+              <i data-lucide="mail" class="input-icon"></i>
+              <input type="email" id="signupEmail" placeholder="Enter your email">
+            </div>
+          </div>
+          <div class="input-group">
             <label for="signupPassword">Password</label>
             <div class="input-wrapper password-wrapper">
               <i data-lucide="lock" class="input-icon"></i>
@@ -122,8 +129,11 @@
   <!-- MAIN APP -->
   <div class="app" id="app" style="display:none;">
 
+    <!-- MOBILE OVERLAY -->
+    <div id="mobileOverlay" class="mobile-overlay" onclick="toggleMobileMenu()"></div>
+
     <!-- SIDEBAR -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <h1 class="luxe-title" style="font-size: 24px; color: var(--text-main); display:flex; align-items:center; gap:10px;">
           <svg viewBox="0 0 100 100" width="32" height="32" xmlns="http://www.w3.org/2000/svg">
@@ -148,19 +158,19 @@
       </div>
       <nav class="sidebar-nav">
         <button class="nav-item" onclick="switchView('overview')" id="navOverview">
-          <i data-lucide="home"></i> Overview
+          <i data-lucide="home"></i> Home
         </button>
         <button class="nav-item active" onclick="switchView('tasks')" id="navTasks">
-          <i data-lucide="check-square"></i> My Tasks
+          <i data-lucide="check-square"></i> Tasks
         </button>
         <button class="nav-item" onclick="switchView('routines')" id="navRoutines">
-          <i data-lucide="repeat"></i> Daily Routines
+          <i data-lucide="repeat"></i> Routines
         </button>
         <button class="nav-item" onclick="switchView('calendar')" id="navCalendar">
           <i data-lucide="calendar"></i> Calendar
         </button>
         <button class="nav-item" onclick="switchView('analytics')" id="navAnalytics">
-          <i data-lucide="pie-chart"></i> Analytics
+          <i data-lucide="pie-chart"></i> Insights
         </button>
       </nav>
       <div class="sidebar-footer">
@@ -175,7 +185,12 @@
       
       <!-- TOP NAV -->
       <header class="top-nav">
-        <!-- Removed search-container as requested -->
+        <!-- Mobile Menu Toggle -->
+        <button id="mobileMenuToggle" class="icon-btn mobile-only" onclick="toggleMobileMenu()">
+          <i data-lucide="menu"></i>
+        </button>
+        <div style="flex:1;"></div>
+        
         <div class="top-nav-actions">
           <!-- Removed theme toggle -->
           <button class="icon-btn" style="position:relative;">
@@ -217,8 +232,8 @@
       <div class="app-content" style="flex:1; overflow-y:auto; position: relative;">
 
         <!-- OVERVIEW VIEW (3-COLUMN LAYOUT) -->
-        <div class="main-content" id="overviewView" style="display:none; padding: 24px 20px 12px 20px; height:100%; overflow:hidden; flex-direction:column;">
-          <div class="dashboard-grid" style="height:100%; overflow:hidden; display:grid; grid-template-columns: 2.5fr 1fr; gap:20px;">
+        <div class="main-content" id="overviewView" style="display:none; padding: 24px 20px 12px 20px; height:100%; overflow-y:auto; flex-direction:column;">
+          <div class="dashboard-grid">
             
             <!-- LEFT MAIN COL -->
             <div class="dash-main-col" style="overflow-y:auto; overflow-x:hidden; min-height:0; padding-right:4px;">
@@ -228,7 +243,6 @@
                   <p id="dashSubGreeting" style="color: var(--text-muted);">You have 0 tasks left today. Keep going!</p>
                 </div>
                 <div style="display:flex; flex-direction:column; align-items:center;">
-                  <span id="dashCurrentDate" style="color:var(--text-main); font-size:14px; font-weight:600; margin-bottom:14px;"></span>
                   <div class="badge-productive" style="border: 1px solid var(--primary); background: rgba(69,33,35,0.05); color:var(--text-main); border-radius: 50px; padding: 6px 16px;">
                     <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--primary); margin-right: 8px;"></div>
                     Productive Day
@@ -237,7 +251,7 @@
               </div>
 
               <!-- STATS -->
-              <div class="stats-row" style="margin-top: 30px; display:grid; grid-template-columns: repeat(4, 1fr); gap:20px;">
+              <div class="dashboard-stats-grid">
                 <div class="stat-card">
                   <div class="stat-icon-wrapper" style="background:var(--bg-main); color:var(--primary);"><i data-lucide="check-circle"></i></div>
                   <div class="stat-text-col">
@@ -274,19 +288,17 @@
 
               <!-- DAILY ROUTINES HERO -->
               <div class="focus-hero-card" style="margin-top: 24px;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                  <div>
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
-                      <div class="stat-icon-wrapper" style="background:var(--bg-main); color:var(--primary); width:30px; height:30px; padding:0;"><i data-lucide="repeat" style="width:16px;"></i></div>
-                      <span style="font-weight:600;">Daily Routines</span>
-                    </div>
-                    <div id="dashRoutineCardContent">
-                      <h3 id="dashRoutineTitle" style="font-size:18px; margin-bottom:8px;">No routines set yet.</h3>
-                      <p id="dashRoutineSubtext" style="color:var(--text-muted); font-size:14px; max-width:80%;">Go to the Daily Routines tab to create some habits!</p>
-                    </div>
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px;">
+                  <div class="stat-icon-wrapper" style="background:var(--bg-main); color:var(--primary); width:30px; height:30px; padding:0;"><i data-lucide="repeat" style="width:16px;"></i></div>
+                  <span style="font-weight:600; color:var(--text-main);">Routines</span>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:16px;">
+                  <div id="dashRoutineCardContent">
+                    <h3 id="dashRoutineTitle" style="font-size:18px; margin-bottom:4px; white-space:nowrap;">No routines set yet.</h3>
+                    <p id="dashRoutineSubtext" style="color:var(--text-muted); font-size:13px;">Go to the Routines tab to create some habits!</p>
                   </div>
-                  <div>
-                    <button class="auth-primary-btn" style="padding: 10px 24px; font-size:14px; width:auto; height:auto; margin-top:0;" onclick="switchView('routines')">View Routines &gt;</button>
+                  <div style="align-self: flex-end;">
+                    <button class="auth-primary-btn" style="padding: 10px 20px; font-size:14px; width:auto; height:auto; margin-top:0; white-space:nowrap;" onclick="switchView('routines')">View Routines</button>
                   </div>
                 </div>
               </div>
@@ -311,7 +323,7 @@
             </div>
 
             <!-- RIGHT WIDGET COL -->
-            <div class="dash-right-col" style="overflow-y:auto; overflow-x:hidden; min-height:0; padding-right:4px; display:flex; flex-direction:column; gap:16px;">
+            <div class="dash-right-col dashboard-widgets-grid" style="overflow-y:auto; overflow-x:hidden; min-height:0; padding-right:4px;">
               
               <!-- MINI CALENDAR -->
               <div class="widget-card">
@@ -330,12 +342,14 @@
               </div>
 
               <!-- UPCOMING TASKS -->
-              <div class="widget-card">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                  <div style="display:flex; align-items:center; gap:8px; font-weight:600;"><i data-lucide="clock" style="width:16px;"></i> Upcoming Tasks</div>
-                  <a href="#" id="upcomingViewAllBtn" onclick="switchView('tasks')" style="color:var(--text-muted); font-size:12px; text-decoration:none;">View All</a>
+              <div class="widget-card" style="display:flex; flex-direction:column;">
+                <div style="display:flex; align-items:center; margin-bottom:20px;">
+                  <div style="display:flex; align-items:center; gap:6px; font-weight:600; font-size: 14px; white-space:nowrap;"><i data-lucide="clock" style="width:16px;"></i> Upcoming Tasks</div>
                 </div>
-                <div id="widgetUpcomingTasks" style="display:flex; flex-direction:column; gap:12px;"></div>
+                <div id="widgetUpcomingTasks" style="display:flex; flex-direction:column; gap:12px; flex:1;"></div>
+                <div style="text-align: center; margin-top: 16px;">
+                  <a href="#" id="upcomingViewAllBtn" onclick="switchView('tasks')" style="color:var(--text-muted); font-size:12px; text-decoration:none;">View All &gt;</a>
+                </div>
               </div>
 
               <!-- Removed Categories and Daily Quote -->
@@ -350,7 +364,7 @@
         <div class="main-content" id="tasksView" style="display:flex; flex-direction:column; padding:30px;">
           <!-- ADVANCED FILTER SECTION -->
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
-            <h2 style="font-size:28px; font-weight:700; color:var(--text-main); margin:0;">My Tasks</h2>
+            <h2 style="font-size:28px; font-weight:700; color:var(--text-main); margin:0;">Tasks</h2>
             <button onclick="openAddTaskModal()" class="highlighted-new-btn">
               + New Task
             </button>
@@ -385,7 +399,8 @@
           <!-- TASK CONTAINER -->
           <!-- TASKS LISTS -->
           <div id="noTasksMessage" style="display:none; text-align:center; padding:50px 20px;">
-            <p style="font-size:24px; color:var(--text-muted); font-weight:600;">No tasks</p>
+            <p style="font-size:24px; color:var(--text-muted); font-weight:600;">You're all caught up! 🌟</p>
+            <p style="font-size:15px; color:var(--text-muted); margin-top:8px;">Enjoy your free time or add a new task.</p>
           </div>
           <div class="orderly-tasks">
             <div id="overdueColumn" style="display:none;">
@@ -393,6 +408,11 @@
               <div id="overdueTasks" class="bento-grid"></div>
             </div>
             
+            <div id="routinesColumn" style="display:none;">
+              <h3 class="section-title">Routines</h3>
+              <div id="routineTasks" class="bento-grid"></div>
+            </div>
+
             <div id="todayColumn" style="display:none;">
               <h3 class="section-title">Today</h3>
               <div id="todayTasks" class="bento-grid"></div>
@@ -402,6 +422,11 @@
               <h3 class="section-title">Upcoming</h3>
               <div id="upcomingTasks" class="bento-grid"></div>
             </div>
+
+            <div id="completedColumn" style="display:none;">
+              <h3 class="section-title">Completed</h3>
+              <div id="completedTasks" class="bento-grid"></div>
+            </div>
           </div>
         </div>
 
@@ -409,7 +434,7 @@
         <div class="main-content" id="routinesView" style="display:none; padding:30px; flex-direction:column; overflow-y:auto; height:100%;">
           <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:30px;">
             <div>
-              <h2 style="font-size: 28px; font-weight:700; color:var(--text-main); margin-bottom:8px;">My Routines</h2>
+              <h2 style="font-size: 28px; font-weight:700; color:var(--text-main); margin-bottom:8px;">Routines</h2>
               <p style="color:var(--text-muted); font-size:14px;">Small habits, daily progress.</p>
             </div>
             <button onclick="openAddRoutineModal()" style="background:var(--primary); color:#fff; border:none; padding:12px 24px; border-radius:12px; font-weight:600; cursor:pointer;">
@@ -456,37 +481,38 @@
         </div>
         <!-- CALENDAR VIEW -->
         <!-- CALENDAR VIEW -->
-        <div class="main-content" id="calendarView" style="display:none; padding:12px 20px; flex-direction:column; overflow:hidden; height:100%;">
-          <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:12px; flex-shrink:0;">
+        <div class="main-content" id="calendarView" style="display:none; padding:12px 20px; flex-direction:column; overflow-y:auto; height:100%;">
+          <div class="calendar-header-wrapper">
             <div>
-              <h2 style="font-size: 28px; font-weight:700; color:var(--text-main); margin-bottom:8px;">Calendar</h2>
-              <p style="color:var(--text-muted); font-size:14px;">Your schedule and upcoming holidays.</p>
+              <h2 class="calendar-title">Calendar</h2>
+              <p class="calendar-subtitle">Your schedule and upcoming holidays.</p>
             </div>
-            <div style="display:flex; gap:12px; align-items:center;">
-              <button onclick="changeCalendarMonth(-1)" style="background:var(--input-bg); border:none; padding:10px; border-radius:12px; cursor:pointer;"><i data-lucide="chevron-left" style="width:20px;"></i></button>
-              <h3 id="calendarMonthYear" style="font-size:18px; font-weight:600; min-width:140px; text-align:center;"></h3>
-              <button onclick="changeCalendarMonth(1)" style="background:var(--input-bg); border:none; padding:10px; border-radius:12px; cursor:pointer;"><i data-lucide="chevron-right" style="width:20px;"></i></button>
+            <div id="calendarControls" class="calendar-controls-pill">
+              <button class="calendar-nav-btn" onclick="changeCalendarMonth(-1)"><i data-lucide="chevron-left"></i></button>
+              <h3 id="calendarMonthYear"></h3>
+              <button class="calendar-nav-btn" onclick="changeCalendarMonth(1)"><i data-lucide="chevron-right"></i></button>
             </div>
           </div>
           
-          <div style="background:var(--card-bg); padding:16px; border-radius:20px; border:1px solid var(--border); box-shadow: 0 4px 16px rgba(0,0,0,0.03); flex:1; display:flex; flex-direction:column; min-height:0;">
-            <div class="calendar-grid-header" style="display:grid; grid-template-columns:repeat(7, 1fr); text-align:center; font-weight:600; color:var(--text-muted); margin-bottom:8px; font-size:13px; flex-shrink:0;">
+          <div class="calendar-card">
+            <div class="calendar-grid-header">
               <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
             </div>
-            <div id="fullCalendarGrid" class="calendar-grid-body" style="display:grid; grid-template-columns:repeat(7, 1fr); gap:8px; flex:1; grid-auto-rows: 1fr; min-height:0;">
+            <div id="fullCalendarGrid" class="calendar-grid-body">
               <!-- Days injected by JS -->
             </div>
           </div>
+          <div id="calendarHolidaysList" style="margin-top:20px; display:flex; flex-direction:column; gap:8px; overflow-y:auto; flex-shrink:0;"></div>
         </div>
 
         <!-- ANALYTICS VIEW -->
         <div class="main-content" id="analyticsView" style="display:none; padding:30px; flex-direction:column; overflow-y:auto; height:100%;">
           <div style="margin-bottom:30px;">
-            <h2 style="font-size: 28px; font-weight:700; color:var(--text-main); margin-bottom:8px;">Analytics</h2>
+            <h2 style="font-size: 28px; font-weight:700; color:var(--text-main); margin-bottom:8px;">Insights</h2>
             <p style="color:var(--text-muted); font-size:14px;">Your progress over the last 7 days.</p>
           </div>
           
-          <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:24px; margin-bottom:24px;">
+          <div class="analytics-grid">
             <div style="background:var(--card-bg); padding:24px; border-radius:24px; border:1px solid var(--border);">
               <h3 style="font-size:16px; margin-bottom:16px; color:var(--text-muted);">Tasks Completed</h3>
               <div style="height:250px; position:relative;">
@@ -544,7 +570,7 @@
       <div style="padding: 30px; display: flex; flex-direction: column; gap: 16px;">
         <div style="display:flex; align-items:center; background: var(--input-bg); border: 1px solid var(--border); border-radius: 20px; padding: 12px 20px;">
           <i data-lucide="circle" style="color: var(--primary); margin-right: 12px; width: 18px;"></i>
-          <input type="text" id="modalTaskTitle" placeholder="Task title..." style="background:transparent; border:none; outline:none; font-size:15px; width:100%; color:var(--text-main);">
+          <input type="text" id="modalTaskTitle" placeholder="Task title..." autocomplete="off" style="background:transparent; border:none; outline:none; font-size:15px; width:100%; color:var(--text-main);">
         </div>
         
         <div style="display:flex; align-items:center; background: var(--input-bg); border: 1px solid var(--border); border-radius: 20px; padding: 12px 20px; position:relative;">
@@ -591,6 +617,53 @@
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
           <button onclick="closeAddTaskModal()" style="background: transparent; border: none; color: var(--text-main); font-weight: 600; font-size:14px; cursor: pointer;">Cancel</button>
           <button onclick="submitModalTask()" style="background: var(--primary); color: #fff; border: none; padding: 14px 24px; border-radius: 24px; font-weight: 600; font-size:14px; cursor: pointer; display:flex; align-items:center; gap:8px;">Add Task <i data-lucide="arrow-right" style="width:16px;"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASK DETAILS SIDE PANEL -->
+  <div id="taskDetailsOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); z-index: 1000; backdrop-filter: blur(2px);" onclick="closeTaskDetails()"></div>
+  <div id="taskDetailsPanel" style="position: fixed; top: 0; right: -450px; width: 400px; height: 100%; background: var(--bg-main); z-index: 1001; transition: right 0.3s ease; box-shadow: -5px 0 30px rgba(0,0,0,0.1); display: flex; flex-direction: column; border-left: 1px solid var(--border);">
+    <div style="padding: 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+      <h3 style="font-size: 20px; font-weight: 700; color: var(--text-main);">Task Details</h3>
+      <button onclick="closeTaskDetails()" class="icon-btn"><i data-lucide="x"></i></button>
+    </div>
+    
+    <div style="padding: 24px; flex: 1; overflow-y: auto; display:flex; flex-direction:column; gap:20px;">
+      <div>
+        <span style="font-size:12px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:1px;">Title</span>
+        <h2 id="panelTitle" style="font-size: 24px; font-weight: 700; color: var(--text-main); margin-top:4px;"></h2>
+      </div>
+      
+      <div>
+        <span style="font-size:12px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:1px;">Description</span>
+        <p id="panelDesc" style="color: var(--text-main); line-height: 1.6; margin-top:4px; font-size:15px; background:var(--input-bg); padding:16px; border-radius:12px; border:1px solid var(--border);"></p>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+        <div style="background:var(--card-bg); padding:16px; border-radius:16px; border:1px solid var(--border);">
+          <div style="display:flex; align-items:center; gap:8px; color:var(--text-muted); margin-bottom:8px;"><i data-lucide="flag" style="width:16px;"></i> <span style="font-size:13px; font-weight:600;">Priority</span></div>
+          <strong id="panelPriority" style="color:var(--text-main); font-size:15px;"></strong>
+        </div>
+        <div style="background:var(--card-bg); padding:16px; border-radius:16px; border:1px solid var(--border);">
+          <div style="display:flex; align-items:center; gap:8px; color:var(--text-muted); margin-bottom:8px;"><i data-lucide="grid" style="width:16px;"></i> <span style="font-size:13px; font-weight:600;">Category</span></div>
+          <strong id="panelCategory" style="color:var(--text-main); font-size:15px;"></strong>
+        </div>
+        <div style="background:var(--card-bg); padding:16px; border-radius:16px; border:1px solid var(--border);">
+          <div style="display:flex; align-items:center; gap:8px; color:var(--text-muted); margin-bottom:8px;"><i data-lucide="calendar" style="width:16px;"></i> <span style="font-size:13px; font-weight:600;">Due Date</span></div>
+          <strong id="panelDue" style="color:var(--text-main); font-size:15px;"></strong>
+        </div>
+        <div style="background:var(--card-bg); padding:16px; border-radius:16px; border:1px solid var(--border);">
+          <div style="display:flex; align-items:center; gap:8px; color:var(--text-muted); margin-bottom:8px;"><i data-lucide="clock" style="width:16px;"></i> <span style="font-size:13px; font-weight:600;">Created</span></div>
+          <strong id="panelCreated" style="color:var(--text-main); font-size:15px;"></strong>
+        </div>
+      </div>
+
+      <div style="margin-top:auto; padding-top:20px;">
+        <div style="display:flex; gap:12px;">
+          <button id="panelEditBtn" style="flex:1; padding:12px; border-radius:12px; background:var(--input-bg); border:1px solid var(--border); color:var(--text-main); font-weight:600; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px;"><i data-lucide="edit-2" style="width:16px;"></i> Edit</button>
+          <button id="panelDeleteBtn" style="flex:1; padding:12px; border-radius:12px; background:#fef2f2; border:1px solid #fee2e2; color:#ef4444; font-weight:600; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px;"><i data-lucide="trash-2" style="width:16px;"></i> Delete</button>
         </div>
       </div>
     </div>
