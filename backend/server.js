@@ -219,6 +219,10 @@ app.get("/routines", async (req, res) => {
         if (!status) {
           status = (dateStr === today) ? 'pending' : 'missed';
           updated = true;
+        } else if (status === 'pending' && dateStr !== today) {
+          // If a past day was left as pending, it should now be missed
+          status = 'missed';
+          updated = true;
         }
         
         newHistory.push({ date: dateStr, status });

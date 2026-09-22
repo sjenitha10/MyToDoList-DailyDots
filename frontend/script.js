@@ -23,7 +23,7 @@ async function signup() {
   const password = document.getElementById("signupPassword").value;
   if (!username || !email || !password) return alert("Please fill in all fields ✨");
   try {
-    const res = await fetch("http://localhost:5000/signup", {
+    const res = await fetch("https://dailydots-g1iy.onrender.com/signup", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, email, password })
     });
@@ -41,7 +41,7 @@ async function login() {
   const password = document.getElementById("loginPassword").value;
   if (!username || !password) return alert("Please enter both username and password 🌸");
   try {
-    const res = await fetch("http://localhost:5000/login", {
+    const res = await fetch("https://dailydots-g1iy.onrender.com/login", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password })
     });
@@ -134,7 +134,7 @@ function switchView(view) {
 async function loadTasks() {
   const userId = localStorage.getItem("userId");
   try {
-    const res = await fetch(`http://localhost:5000/tasks?userId=${userId}`);
+    const res = await fetch(`https://dailydots-g1iy.onrender.com/tasks?userId=${userId}`);
     tasks = await res.json();
     renderTasks();
     renderOverview();
@@ -174,7 +174,7 @@ document.addEventListener('click', function(e) {
 async function loadProfile() {
   const userId = localStorage.getItem("userId");
   try {
-    const res = await fetch(`http://localhost:5000/profile/${userId}`);
+    const res = await fetch(`https://dailydots-g1iy.onrender.com/profile/${userId}`);
     const data = await res.json();
     
     // Update old profile view (if still used)
@@ -220,7 +220,7 @@ async function addTask() {
   const userId = localStorage.getItem("userId");
   const task = { title, description: "", category: "💼 Work", dueDate, completed: false, userId, priority: "medium" };
   try {
-    await fetch("http://localhost:5000/tasks", {
+    await fetch("https://dailydots-g1iy.onrender.com/tasks", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(task)
     });
@@ -270,7 +270,7 @@ async function submitModalTask() {
   
   isSubmittingTask = true;
   try {
-    await fetch("http://localhost:5000/tasks", {
+    await fetch("https://dailydots-g1iy.onrender.com/tasks", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(task)
     });
@@ -671,7 +671,7 @@ async function loadRoutines() {
   const userId = localStorage.getItem("userId");
   if (!userId) return;
   try {
-    const res = await fetch(`http://localhost:5000/routines?userId=${userId}`);
+    const res = await fetch(`https://dailydots-g1iy.onrender.com/routines?userId=${userId}`);
     if (res.ok) {
       routines = await res.json();
       renderRoutines();
@@ -769,7 +769,7 @@ async function submitRoutine() {
   
   isSubmittingRoutine = true;
   try {
-    await fetch("http://localhost:5000/routines", {
+    await fetch("https://dailydots-g1iy.onrender.com/routines", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, title, icon: icon || '💧' })
     });
@@ -781,7 +781,7 @@ async function submitRoutine() {
 
 async function completeRoutine(id) {
   try {
-    await fetch(`http://localhost:5000/routines/${id}/complete`, {
+    await fetch(`https://dailydots-g1iy.onrender.com/routines/${id}/complete`, {
       method: "PUT"
     });
     loadRoutines();
@@ -791,7 +791,7 @@ async function completeRoutine(id) {
 async function deleteRoutine(id) {
   if (!confirm("Are you sure you want to delete this routine? This will delete all its history.")) return;
   try {
-    await fetch(`http://localhost:5000/routines/${id}`, {
+    await fetch(`https://dailydots-g1iy.onrender.com/routines/${id}`, {
       method: "DELETE"
     });
     loadRoutines();
@@ -802,7 +802,7 @@ async function deleteRoutine(id) {
 async function toggleComplete(id) {
   const task = tasks.find(t => t._id === id);
   try {
-    await fetch(`http://localhost:5000/tasks/${id}`, {
+    await fetch(`https://dailydots-g1iy.onrender.com/tasks/${id}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
         completed: !task.completed,
@@ -819,7 +819,7 @@ async function editTask(id) {
   if (newTitle === null) return;
   const newDesc = prompt("Edit Task Description:", task.description || "");
   try {
-    await fetch(`http://localhost:5000/tasks/${id}`, {
+    await fetch(`https://dailydots-g1iy.onrender.com/tasks/${id}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title: newTitle.trim(), description: newDesc.trim() })
     });
@@ -831,7 +831,7 @@ async function editTask(id) {
 async function deleteTask(id) {
   if (!confirm("Delete this task? 🌸")) return;
   try {
-    await fetch(`http://localhost:5000/tasks/${id}`, { method: "DELETE" });
+    await fetch(`https://dailydots-g1iy.onrender.com/tasks/${id}`, { method: "DELETE" });
     loadTasks();
   } catch (err) { console.error(err); }
 }
