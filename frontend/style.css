@@ -50,7 +50,12 @@ body {
 /* AUTH CONTAINER (Centered Soft Card) */
 .auth-container {
   width: 100%;
-  min-height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -58,6 +63,7 @@ body {
   background: var(--bg-main);
   font-family: 'Inter', sans-serif;
   animation: fadeIn 0.5s ease;
+  z-index: 1000;
 }
 
 @keyframes fadeIn {
@@ -1352,16 +1358,30 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
   }
 
   /* Grids and Layouts */
-  .dashboard-grid, .analytics-grid {
+  .dashboard-grid {
+    display: flex;
+    flex-direction: column;
+  }
+  .analytics-grid {
     grid-template-columns: 1fr;
   }
-  .dashboard-stats-grid {
+  
+  .dash-main-col {
+    display: contents;
+  }
+  .dash-header-card { order: 1; }
+  .dashboard-stats-grid { 
+    order: 2;
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
   }
+  .dash-right-col { order: 3; }
+  .focus-hero-card { order: 4; }
+  .progress-section { order: 5; }
+
   .dashboard-widgets-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
     gap: 12px;
   }
 
@@ -1384,6 +1404,21 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
   /* Specific Adjustments */
   .auth-card {
     padding: 40px 24px;
+  }
+
+  /* Profile Popup Adjustments */
+  .profile-popup {
+    position: fixed;
+    top: 60px;
+    right: 16px;
+    width: 280px;
+  }
+  .profile-popup-header {
+    padding: 16px;
+    gap: 12px;
+  }
+  .profile-popup-menu {
+    padding: 16px 16px 20px;
   }
 
   /* Calendar Header Mobile Layout */

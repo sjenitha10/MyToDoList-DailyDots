@@ -513,16 +513,54 @@
           </div>
           
           <div class="analytics-grid">
-            <div style="background:var(--card-bg); padding:24px; border-radius:24px; border:1px solid var(--border);">
-              <h3 style="font-size:16px; margin-bottom:16px; color:var(--text-muted);">Tasks Completed</h3>
-              <div style="height:250px; position:relative;">
-                <canvas id="tasksChart"></canvas>
+            <!-- DAILY RINGS -->
+            <div style="background:var(--card-bg); padding:30px; border-radius:24px; border:1px solid var(--border); display:flex; flex-direction:column; align-items:center;">
+              <h3 style="font-size:18px; margin-bottom:24px; color:var(--text-main); font-weight:600; align-self:flex-start;">Today's Goals</h3>
+              
+              <div class="rings-container" style="position:relative; width: 220px; height: 220px; display:flex; justify-content:center; align-items:center;">
+                <svg width="220" height="220" viewBox="0 0 220 220" style="transform: rotate(-90deg);">
+                  <!-- Outer Ring Background (Tasks) -->
+                  <circle cx="110" cy="110" r="90" fill="none" stroke="rgba(255, 60, 60, 0.15)" stroke-width="18" />
+                  <!-- Outer Ring Progress (Tasks) -->
+                  <circle cx="110" cy="110" r="90" fill="none" stroke="var(--primary)" stroke-width="18" stroke-linecap="round" id="ringTasks" style="stroke-dasharray: 565; stroke-dashoffset: 565; transition: stroke-dashoffset 1.5s ease-in-out;" />
+                  
+                  <!-- Inner Ring Background (Routines) -->
+                  <circle cx="110" cy="110" r="66" fill="none" stroke="rgba(234, 88, 12, 0.15)" stroke-width="18" />
+                  <!-- Inner Ring Progress (Routines) -->
+                  <circle cx="110" cy="110" r="66" fill="none" stroke="#ea580c" stroke-width="18" stroke-linecap="round" id="ringRoutines" style="stroke-dasharray: 414; stroke-dashoffset: 414; transition: stroke-dashoffset 1.5s ease-in-out;" />
+                </svg>
+                
+                <div style="position:absolute; text-align:center;">
+                  <i data-lucide="target" style="width:32px; height:32px; color:var(--text-main); opacity:0.8;"></i>
+                </div>
+              </div>
+              
+              <div style="display:flex; width:100%; justify-content:space-around; margin-top:30px;">
+                <div style="text-align:center;">
+                  <div style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px;">
+                    <div style="width:10px; height:10px; border-radius:50%; background:var(--primary);"></div>
+                    TASKS
+                  </div>
+                  <div style="font-size:20px; font-weight:700; color:var(--text-main);" id="ringTasksText">0%</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px;">
+                    <div style="width:10px; height:10px; border-radius:50%; background:#ea580c;"></div>
+                    ROUTINES
+                  </div>
+                  <div style="font-size:20px; font-weight:700; color:var(--text-main);" id="ringRoutinesText">0%</div>
+                </div>
               </div>
             </div>
-            <div style="background:var(--card-bg); padding:24px; border-radius:24px; border:1px solid var(--border);">
-              <h3 style="font-size:16px; margin-bottom:16px; color:var(--text-muted);">Routines Met</h3>
-              <div style="height:250px; position:relative;">
-                <canvas id="routinesChart"></canvas>
+
+            <!-- WEEKLY TRENDS -->
+            <div style="background:var(--card-bg); padding:30px; border-radius:24px; border:1px solid var(--border); display:flex; flex-direction:column;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+                <h3 style="font-size:18px; color:var(--text-main); font-weight:600;">Weekly Trends</h3>
+                <span style="font-size:12px; font-weight:600; background:rgba(92,35,38,0.1); color:var(--primary); padding:6px 12px; border-radius:20px;">Tasks Completed</span>
+              </div>
+              <div style="flex:1; position:relative; min-height:250px;">
+                <canvas id="tasksChart"></canvas>
               </div>
             </div>
           </div>

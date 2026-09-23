@@ -1042,41 +1042,115 @@ function renderAnalytics() {
     }).length;
   });
   
+  // CALCULATE TODAY'S GOALS FOR RINGS
+  const todayStr = last7Days[last7Days.length - 1];
+  
+  // Tasks Today
+  const tasksToday = tasks.filter(t => {
+    if (!t.dueDate) return false;
+    return t.dueDate.startsWith(todayStr);
+  });
+  const tasksCompletedToday = tasksToday.filter(t => t.completed).length;
+  const tasksPct = tasksToday.length ? Math.round((tasksCompletedToday / tasksToday.length) * 100) : 0;
+  
+  // Routines Today
+  let routinesTotalToday = 0;
+  let routinesCompletedToday = 0;
+  if (routines) {
+    routines.forEach(r => {
+      const entry = r.history.find(h => h.date === todayStr);
+      if (entry) {
+        routinesTotalToday++;
+        if (entry.status === 'completed') routinesCompletedToday++;
+      }
+    });
+  }
+  const routinesPct = routinesTotalToday ? Math.round((routinesCompletedToday / routinesTotalToday) * 100) : 0;
+
+  // Animate Rings
+  const ringTasks = document.getElementById("ringTasks");
+  if (ringTasks) {
+    const tasksOffset = 565 - (565 * tasksPct) / 100;
+    setTimeout(() => {
+      ringTasks.style.strokeDashoffset = tasksOffset;
+    }, 100);
+    document.getElementById("ringTasksText").textContent = tasksPct + "%";
+  }
+  
+  const ringRoutines = document.getElementById("ringRoutines");
+  if (ringRoutines) {
+    const routinesOffset = 414 - (414 * routinesPct) / 100;
+    setTimeout(() => {
+      ringRoutines.style.strokeDashoffset = routinesOffset;
+    }, 100);
+    document.getElementById("ringRoutinesText").textContent = routinesPct + "%";
+  }
+  
   const ctxTasks = document.getElementById('tasksChart');
-  const ctxRoutines = document.getElementById('routinesChart');
   
   if(chartTasks) chartTasks.destroy();
-  if(chartRoutines) chartRoutines.destroy();
+  if(chartRoutines) { chartRoutines.destroy(); chartRoutines = null; }
   
-  chartTasks = new Chart(ctxTasks, {
-    type: 'line',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Tasks Completed',
-        data: tasksData,
-        borderColor: '#5c2326',
-        backgroundColor: 'rgba(92, 35, 38, 0.1)',
-        tension: 0.3,
-        fill: true
-      }]
-    },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
-  });
-  
-  chartRoutines = new Chart(ctxRoutines, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Routines Met',
-        data: routinesData,
-        backgroundColor: '#8c5a53',
-        borderRadius: 4
-      }]
-    },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
-  });
+  if (ctxTasks) {
+    const gradient = ctxTasks.getContext('2d').createLinearGradient(0, 0, 0, 400);
+    gradient.addColorStop(0, 'rgba(172, 38, 48, 0.4)');
+    gradient.addColorStop(1, 'rgba(172, 38, 48, 0.0)');
+
+    chartTasks = new Chart(ctxTasks, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Tasks Completed',
+          data: tasksData,
+          borderColor: '#ac2630', // var(--primary) hex
+          backgroundColor: gradient,
+          borderWidth: 3,
+          pointBackgroundColor: '#ac2630',
+          pointBorderColor: '#fff',
+          pointHoverBackgroundColor: '#fff',
+          pointHoverBorderColor: '#ac2630',
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          fill: true,
+          tension: 0.4 // Smooth bezier curve
+        }]
+      },
+      options: { 
+        responsive: true, 
+        maintainAspectRatio: false, 
+        plugins: { 
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#fff',
+            titleColor: '#000',
+            bodyColor: '#555',
+            borderColor: '#e5e7eb',
+            borderWidth: 1,
+            padding: 10,
+            displayColors: false,
+            callbacks: {
+              label: function(context) {
+                return context.parsed.y + ' tasks';
+              }
+            }
+          }
+        }, 
+        scales: { 
+          x: { 
+            grid: { display: false, drawBorder: false },
+            ticks: { color: '#888', font: { size: 11 } }
+          },
+          y: { 
+            beginAtZero: true, 
+            grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false, borderDash: [5, 5] },
+            ticks: { stepSize: 1, color: '#888', font: { size: 11 } }
+          } 
+        },
+        interaction: { intersect: false, mode: 'index' }
+      }
+    });
+  }
 }
 
 window.onload = () => {
