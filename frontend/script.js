@@ -401,7 +401,7 @@ function renderTasks() {
       const isCompleted = todayEntry.status === 'completed';
       
       if (searchQuery && !(r.title || "").toLowerCase().includes(searchQuery)) return;
-      if (filterCategory !== "all") return; // Routines don't have these categories
+      if (filterCategory !== "all" && r.category !== filterCategory) return;
       if (filterPriority !== "all") return;
       
       if (!isCompleted) {
@@ -416,6 +416,7 @@ function renderTasks() {
             <strong>${r.icon} ${r.title}</strong>
             <div style="margin-top: 8px;">
               <span class="category-badge" style="background:var(--bg-main); color:var(--text-muted); border: 1px solid var(--border);">Routine</span>
+              ${r.category ? `<span class="category-badge">${r.category}</span>` : ""}
             </div>
           </div>
           <div class="buttons" style="margin-left:16px;">
@@ -728,6 +729,9 @@ function renderRoutines() {
         </div>
         <div>
           <h4 style="font-size:18px; font-weight:700; margin-bottom:8px; color:var(--text-main);">${r.title}</h4>
+          <div style="margin-bottom:12px;">
+            <span class="category-badge">${r.category || "🏠 Personal"}</span>
+          </div>
           <div style="display:flex; flex-direction:column; gap:6px; font-size:13px; color:var(--text-muted); margin-bottom:20px;">
             <span style="font-weight:600;"><i data-lucide="flame" style="width:14px; margin-right:4px; vertical-align:middle; color:#ea580c;"></i> ${r.currentStreak}-day streak</span>
             <span>Status: <span style="color:${statusColor}; font-weight:700;">${statusText}</span></span>
@@ -763,6 +767,7 @@ async function submitRoutine() {
   if (isSubmittingRoutine) return;
   const title = document.getElementById("routineTitle").value.trim();
   const icon = document.getElementById("routineIcon").value.trim();
+  const category = document.getElementById("routineCategory") ? document.getElementById("routineCategory").value : "🏠 Personal";
   const userId = localStorage.getItem("userId");
   
   if (!title) return alert("Please enter a routine name!");
@@ -771,7 +776,7 @@ async function submitRoutine() {
   try {
     await fetch("https://dailydots-g1iy.onrender.com/routines", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, title, icon: icon || '💧' })
+      body: JSON.stringify({ userId, title, icon: icon || '💧', category })
     });
     closeAddRoutineModal();
     loadRoutines();
@@ -1005,7 +1010,15 @@ function renderFullCalendar() {
 }
 
 // --- ANALYTICS LOGIC ---
-let chartTasks, chartRoutines;
+let chartCompletion;
+let insightsFilter = 'tasks';
+
+function setInsightsFilter(filter) {
+  insightsFilter = filter;
+  document.getElementById('filterInsightsTasks').classList.toggle('active', filter === 'tasks');
+  document.getElementById('filterInsightsRoutines').classList.toggle('active', filter === 'routines');
+  renderAnalytics();
+}
 
 function renderAnalytics() {
   if (typeof Chart === 'undefined') {
@@ -1013,8 +1026,134 @@ function renderAnalytics() {
     return;
   }
   
-  const last7Days = [];
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().split("T")[0];
+
+  document.getElementById("insightsTodayDate").textContent = today.toLocaleDateString("en-US", { day: 'numeric', month: 'short' });
+  
+  let totalTasksCount = 0;
+  let completedCount = 0;
+  let pendingCount = 0;
+  let overdueCount = 0;
+  let carryOverCount = 0;
+  
+  const categoryStats = {};
+  
+  // Tasks Today
+  const todaysTasks = tasks.filter(t => {
+    if (!t.dueDate) return false;
+    return t.dueDate.startsWith(todayStr);
+  });
+  
+  if (insightsFilter === 'tasks') {
+    totalTasksCount = todaysTasks.length;
+    completedCount = todaysTasks.filter(t => t.completed).length;
+    pendingCount = todaysTasks.filter(t => !t.completed).length;
+    
+    // Overdue Tasks (from previous days that are not completed)
+    overdueCount = tasks.filter(t => {
+      if(t.completed || !t.dueDate) return false;
+      const due = new Date(t.dueDate);
+      due.setHours(0,0,0,0);
+      return due.getTime() < today.getTime();
+    }).length;
+    
+    carryOverCount = overdueCount; // Carry over is basically uncompleted past tasks
+    
+    // Category focus (for today's tasks)
+    todaysTasks.forEach(t => {
+      const cat = t.category || "📝 General";
+      if(!categoryStats[cat]) categoryStats[cat] = { total: 0, completed: 0 };
+      categoryStats[cat].total++;
+      if (t.completed) categoryStats[cat].completed++;
+    });
+  } else {
+    // ROUTINES logic
+    if (routines) {
+      totalTasksCount = routines.length;
+      routines.forEach(r => {
+        const entry = r.history.find(h => h.date === todayStr);
+        if (entry && entry.status === 'completed') completedCount++;
+        else pendingCount++;
+      });
+    }
+  }
+
+  const completionPct = totalTasksCount ? Math.round((completedCount / totalTasksCount) * 100) : 0;
+  
+  document.getElementById("insightTotalTasks").textContent = totalTasksCount;
+  document.getElementById("insightCompleted").textContent = completedCount;
+  document.getElementById("insightCompletionPct").textContent = `${completionPct}%`;
+  
+  document.getElementById("statusCompleted").textContent = completedCount;
+  document.getElementById("statusPending").textContent = pendingCount;
+  document.getElementById("statusOverdue").textContent = overdueCount;
+  
+  document.getElementById("insightCarryOver").textContent = `${carryOverCount} task${carryOverCount !== 1 ? 's' : ''}`;
+
+  // Focus List
+  const focusListEl = document.getElementById("insightsFocusList");
+  focusListEl.innerHTML = "";
+  
+  // Sort categories by total tasks today
+  const sortedCategories = Object.keys(categoryStats).sort((a, b) => categoryStats[b].total - categoryStats[a].total);
+  
+  if (sortedCategories.length === 0) {
+    focusListEl.innerHTML = `<div style="color:var(--text-muted); font-size:14px; text-align:center; padding:20px;">No tasks for today.</div>`;
+  } else {
+    sortedCategories.forEach(cat => {
+      const stats = categoryStats[cat];
+      const pct = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+      const totalPctOfToday = totalTasksCount > 0 ? Math.round((stats.total / totalTasksCount) * 100) : 0;
+      
+      let barColor = 'var(--primary)';
+      if(cat.includes('Personal')) barColor = '#3b82f6';
+      else if(cat.includes('Study')) barColor = '#10b981';
+      else if(cat.includes('General')) barColor = '#f59e0b';
+      else if(cat.includes('Shopping')) barColor = '#8b5cf6';
+      else if(cat.includes('Projects')) barColor = '#ea580c';
+
+      focusListEl.innerHTML += `
+        <div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:14px;">
+            <span style="font-weight:600; color:var(--text-main);">${cat}</span>
+            <span style="font-weight:600; color:var(--text-muted);">${totalPctOfToday}%</span>
+          </div>
+          <div style="width:100%; height:8px; background:var(--input-bg); border-radius:4px; overflow:hidden;">
+            <div style="height:100%; width:${totalPctOfToday}%; background:${barColor}; border-radius:4px;"></div>
+          </div>
+          <div style="font-size:12px; color:var(--text-muted); margin-top:6px;">
+            ${stats.total} task${stats.total !== 1 ? 's' : ''} · ${stats.completed} completed · ${pct}% done
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  // Top Category All-Time
+  let bestCat = "-";
+  let maxCompleted = 0;
+  const allTimeCatStats = {};
+  if (insightsFilter === 'tasks') {
+    tasks.forEach(t => {
+      if(t.completed) {
+        const cat = t.category || "📝 General";
+        allTimeCatStats[cat] = (allTimeCatStats[cat] || 0) + 1;
+      }
+    });
+    for(let cat in allTimeCatStats) {
+      if(allTimeCatStats[cat] > maxCompleted) {
+        maxCompleted = allTimeCatStats[cat];
+        bestCat = cat;
+      }
+    }
+  }
+  document.getElementById("insightTopCategoryName").textContent = bestCat;
+  document.getElementById("insightTopCategoryCount").textContent = `${maxCompleted} completed`;
+
+  // Daily Completion Chart (Last 7 Days)
+  const last7Days = [];
   for(let i = 6; i >= 0; i--) {
     let d = new Date(today);
     d.setDate(today.getDate() - i);
@@ -1025,95 +1164,52 @@ function renderAnalytics() {
     return `${obj.getDate()} ${obj.toLocaleString('default', { month: 'short' })}`;
   });
   
-  // Tasks Data: Completed per day
-  const tasksData = last7Days.map(dateStr => {
-    return tasks.filter(t => {
-      if (!t.completed || !t.completedAt) return false;
-      return t.completedAt.startsWith(dateStr);
-    }).length;
+  // Calculate completion percentage per day
+  const completionData = last7Days.map(dateStr => {
+    if (insightsFilter === 'tasks') {
+      const dayTasks = tasks.filter(t => t.dueDate && t.dueDate.startsWith(dateStr));
+      if (dayTasks.length === 0) return 0;
+      // count completed on that day or generally completed? 
+      // If a task is due on that day and is completed, we count it as completed for that day's goal.
+      const comp = dayTasks.filter(t => t.completed).length;
+      return Math.round((comp / dayTasks.length) * 100);
+    } else {
+      if (!routines || routines.length === 0) return 0;
+      let comp = 0;
+      routines.forEach(r => {
+        const entry = r.history.find(h => h.date === dateStr);
+        if (entry && entry.status === 'completed') comp++;
+      });
+      return Math.round((comp / routines.length) * 100);
+    }
   });
   
-  // Routines Data: Met per day
-  const routinesData = last7Days.map(dateStr => {
-    if(!routines) return 0;
-    return routines.filter(r => {
-      const entry = r.history.find(h => h.date === dateStr);
-      return entry && entry.status === 'completed';
-    }).length;
-  });
+  const ctxCompletion = document.getElementById('dailyCompletionChart');
+  if(chartCompletion) { chartCompletion.destroy(); chartCompletion = null; }
   
-  // CALCULATE TODAY'S GOALS FOR RINGS
-  const todayStr = last7Days[last7Days.length - 1];
-  
-  // Tasks Today
-  const tasksToday = tasks.filter(t => {
-    if (!t.dueDate) return false;
-    return t.dueDate.startsWith(todayStr);
-  });
-  const tasksCompletedToday = tasksToday.filter(t => t.completed).length;
-  const tasksPct = tasksToday.length ? Math.round((tasksCompletedToday / tasksToday.length) * 100) : 0;
-  
-  // Routines Today
-  let routinesTotalToday = 0;
-  let routinesCompletedToday = 0;
-  if (routines) {
-    routines.forEach(r => {
-      const entry = r.history.find(h => h.date === todayStr);
-      if (entry) {
-        routinesTotalToday++;
-        if (entry.status === 'completed') routinesCompletedToday++;
-      }
-    });
-  }
-  const routinesPct = routinesTotalToday ? Math.round((routinesCompletedToday / routinesTotalToday) * 100) : 0;
-
-  // Animate Rings
-  const ringTasks = document.getElementById("ringTasks");
-  if (ringTasks) {
-    const tasksOffset = 565 - (565 * tasksPct) / 100;
-    setTimeout(() => {
-      ringTasks.style.strokeDashoffset = tasksOffset;
-    }, 100);
-    document.getElementById("ringTasksText").textContent = tasksPct + "%";
-  }
-  
-  const ringRoutines = document.getElementById("ringRoutines");
-  if (ringRoutines) {
-    const routinesOffset = 414 - (414 * routinesPct) / 100;
-    setTimeout(() => {
-      ringRoutines.style.strokeDashoffset = routinesOffset;
-    }, 100);
-    document.getElementById("ringRoutinesText").textContent = routinesPct + "%";
-  }
-  
-  const ctxTasks = document.getElementById('tasksChart');
-  
-  if(chartTasks) chartTasks.destroy();
-  if(chartRoutines) { chartRoutines.destroy(); chartRoutines = null; }
-  
-  if (ctxTasks) {
-    const gradient = ctxTasks.getContext('2d').createLinearGradient(0, 0, 0, 400);
-    gradient.addColorStop(0, 'rgba(172, 38, 48, 0.4)');
+  if (ctxCompletion) {
+    const gradient = ctxCompletion.getContext('2d').createLinearGradient(0, 0, 0, 200);
+    gradient.addColorStop(0, 'rgba(172, 38, 48, 0.2)');
     gradient.addColorStop(1, 'rgba(172, 38, 48, 0.0)');
 
-    chartTasks = new Chart(ctxTasks, {
+    chartCompletion = new Chart(ctxCompletion, {
       type: 'line',
       data: {
         labels: labels,
         datasets: [{
-          label: 'Tasks Completed',
-          data: tasksData,
-          borderColor: '#ac2630', // var(--primary) hex
+          label: 'Completion %',
+          data: completionData,
+          borderColor: '#ac2630',
           backgroundColor: gradient,
           borderWidth: 3,
           pointBackgroundColor: '#ac2630',
           pointBorderColor: '#fff',
           pointHoverBackgroundColor: '#fff',
           pointHoverBorderColor: '#ac2630',
-          pointRadius: 4,
-          pointHoverRadius: 6,
+          pointRadius: 5,
+          pointHoverRadius: 7,
           fill: true,
-          tension: 0.4 // Smooth bezier curve
+          tension: 0.3
         }]
       },
       options: { 
@@ -1131,7 +1227,7 @@ function renderAnalytics() {
             displayColors: false,
             callbacks: {
               label: function(context) {
-                return context.parsed.y + ' tasks';
+                return context.parsed.y + '% completed';
               }
             }
           }
@@ -1139,12 +1235,20 @@ function renderAnalytics() {
         scales: { 
           x: { 
             grid: { display: false, drawBorder: false },
-            ticks: { color: '#888', font: { size: 11 } }
+            ticks: { color: '#888', font: { size: 12 } }
           },
           y: { 
-            beginAtZero: true, 
+            min: 0,
+            max: 100,
             grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false, borderDash: [5, 5] },
-            ticks: { stepSize: 1, color: '#888', font: { size: 11 } }
+            ticks: { 
+              stepSize: 25, 
+              color: '#888', 
+              font: { size: 12 },
+              callback: function(value) {
+                return value + '%';
+              }
+            }
           } 
         },
         interaction: { intersect: false, mode: 'index' }

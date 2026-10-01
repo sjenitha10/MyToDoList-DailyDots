@@ -4,6 +4,7 @@ const RoutineSchema = new mongoose.Schema({
   userId: { type: String, required: true },
   title: { type: String, required: true },
   icon: { type: String, default: '💧' },
+  category: { type: String, default: '🏠 Personal' },
   currentStreak: { type: Number, default: 0 },
   longestStreak: { type: Number, default: 0 },
   totalCompleted: { type: Number, default: 0 },
