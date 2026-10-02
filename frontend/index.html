@@ -193,10 +193,6 @@
         
         <div class="top-nav-actions">
           <!-- Removed theme toggle -->
-          <button class="icon-btn" style="position:relative;">
-            <i data-lucide="bell"></i>
-            <span class="notification-dot"></span>
-          </button>
           <div style="position:relative;" id="profileDropdownContainer">
             <div class="profile-dropdown" onclick="toggleProfilePopup()">
               <div class="avatar"><span id="topNavAvatarLetter" style="color:#fff; font-weight:700; font-size:12px;">J</span></div>
@@ -525,67 +521,50 @@
           </div>
 
           <!-- TOP ROW: Summary Stats -->
-          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:20px; margin-bottom:24px;" id="insightsTopRow">
+          <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:20px; margin-bottom:24px;" id="insightsTopRow">
             <div style="background:var(--card-bg); padding:20px; border-radius:16px; border:1px solid var(--border);">
-              <div style="font-size:13px; color:var(--text-muted); font-weight:600; margin-bottom:8px;">Total Tasks</div>
-              <div style="font-size:28px; font-weight:700; color:var(--text-main);" id="insightTotalTasks">0</div>
+              <div style="font-size:13px; color:var(--text-muted); font-weight:600; margin-bottom:8px;">Longest Streak</div>
+              <div style="font-size:28px; font-weight:700; color:var(--text-main);" id="insightLongestStreak">0</div>
             </div>
             <div style="background:var(--card-bg); padding:20px; border-radius:16px; border:1px solid var(--border);">
-              <div style="font-size:13px; color:var(--text-muted); font-weight:600; margin-bottom:8px;">Completed</div>
-              <div style="font-size:28px; font-weight:700; color:var(--text-main);" id="insightCompleted">0</div>
+              <div style="font-size:13px; color:var(--text-muted); font-weight:600; margin-bottom:8px;">Completed Today</div>
+              <div style="font-size:28px; font-weight:700; color:var(--text-main);" id="insightCompletedToday">0</div>
             </div>
             <div style="background:var(--card-bg); padding:20px; border-radius:16px; border:1px solid var(--border);">
-              <div style="font-size:13px; color:var(--text-muted); font-weight:600; margin-bottom:8px;">Completion</div>
-              <div style="font-size:28px; font-weight:700; color:var(--text-main);" id="insightCompletionPct">0%</div>
+              <div style="font-size:13px; color:var(--text-muted); font-weight:600; margin-bottom:8px;">Pending Tasks</div>
+              <div style="font-size:28px; font-weight:700; color:var(--text-main);" id="insightPendingTasks">0</div>
+            </div>
+            <div style="background:var(--card-bg); padding:20px; border-radius:16px; border:1px solid var(--border);">
+              <div style="font-size:13px; color:var(--text-muted); font-weight:600; margin-bottom:8px;">Time Logged Today</div>
+              <div style="font-size:28px; font-weight:700; color:var(--text-main);" id="insightTimeLogged">0m</div>
             </div>
           </div>
 
-          <!-- MIDDLE ROW: Focus & Status -->
-          <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px; margin-bottom:24px;" id="insightsMiddleRow">
-            <!-- Category Focus -->
-            <div style="background:var(--card-bg); padding:24px; border-radius:20px; border:1px solid var(--border); display:flex; flex-direction:column;">
-              <h3 style="font-size:16px; color:var(--text-main); font-weight:700; margin-bottom:20px;">What you focused on today</h3>
-              <div id="insightsFocusList" style="display:flex; flex-direction:column; gap:16px; flex:1;">
-                <!-- Filled via JS -->
-              </div>
-            </div>
 
-            <!-- Task Status -->
-            <div style="background:var(--card-bg); padding:24px; border-radius:20px; border:1px solid var(--border);">
-              <h3 style="font-size:16px; color:var(--text-main); font-weight:700; margin-bottom:20px;">Task Status</h3>
-              <div style="display:flex; flex-direction:column; gap:16px;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                  <div style="display:flex; align-items:center; gap:8px;">
-                    <i data-lucide="check-circle" style="color:var(--primary); width:18px;"></i>
-                    <span style="font-size:14px; font-weight:600; color:var(--text-main);">Completed</span>
-                  </div>
-                  <strong style="font-size:16px;" id="statusCompleted">0</strong>
-                </div>
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                  <div style="display:flex; align-items:center; gap:8px;">
-                    <i data-lucide="circle" style="color:var(--text-muted); width:18px;"></i>
-                    <span style="font-size:14px; font-weight:600; color:var(--text-main);">Pending</span>
-                  </div>
-                  <strong style="font-size:16px;" id="statusPending">0</strong>
-                </div>
-                <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="switchView('tasks'); document.getElementById('filterStatus').value='active'; renderTasks();">
-                  <div style="display:flex; align-items:center; gap:8px;">
-                    <i data-lucide="alert-circle" style="color:#ef4444; width:18px;"></i>
-                    <span style="font-size:14px; font-weight:600; color:#ef4444;">Overdue</span>
-                  </div>
-                  <strong style="font-size:16px; color:#ef4444;" id="statusOverdue">0</strong>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- DAILY COMPLETION CHART -->
+          <!-- CATEGORY FOCUS (FULL WIDTH) -->
           <div style="background:var(--card-bg); padding:24px; border-radius:20px; border:1px solid var(--border); margin-bottom:24px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-              <h3 style="font-size:16px; color:var(--text-main); font-weight:700;">Daily Completion</h3>
+            <h3 style="font-size:16px; color:var(--text-main); font-weight:700; margin-bottom:20px;">Category Focus</h3>
+            <div style="position:relative; height:250px; width:100%;">
+              <canvas id="categoriesChart"></canvas>
             </div>
-            <div style="position:relative; height:200px; width:100%;">
-              <canvas id="dailyCompletionChart"></canvas>
+          </div>
+
+          <!-- OTHER CHARTS SECTION -->
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:24px; margin-bottom:24px;">
+            <!-- Task Chart -->
+            <div style="background:var(--card-bg); padding:24px; border-radius:20px; border:1px solid var(--border);">
+              <h3 style="font-size:16px; color:var(--text-main); font-weight:700; margin-bottom:20px;">Task Completion</h3>
+              <div style="position:relative; height:200px; width:100%;">
+                <canvas id="tasksChart"></canvas>
+              </div>
+            </div>
+
+            <!-- Routine Chart -->
+            <div style="background:var(--card-bg); padding:24px; border-radius:20px; border:1px solid var(--border);">
+              <h3 style="font-size:16px; color:var(--text-main); font-weight:700; margin-bottom:20px;">Routines Tracker</h3>
+              <div style="position:relative; height:200px; width:100%;">
+                <canvas id="routinesChart"></canvas>
+              </div>
             </div>
           </div>
 
@@ -676,32 +655,40 @@
           </div>
         </div>
 
-        <div style="display:flex; align-items:center; background: var(--input-bg); border: 1px solid var(--border); border-radius: 20px; padding: 12px 20px;">
-          <i data-lucide="grid" style="color: var(--text-muted); margin-right: 12px; width: 18px;"></i>
-          <div style="flex:1;">
-            <span style="font-size:12px; color:var(--text-muted); display:block; line-height:1; margin-bottom:2px;">Category</span>
-            <select id="modalTaskCategory" style="background:transparent; border:none; outline:none; font-size:14px; width:100%; color:var(--text-main); font-family:inherit; appearance:none;">
-              <option value="💼 Work">💼 Work</option>
-              <option value="📚 Study">📚 Study</option>
-              <option value="💻 Projects">💻 Projects</option>
-              <option value="🏠 Personal">🏠 Personal</option>
-              <option value="🛒 Shopping">🛒 Shopping</option>
-            </select>
+        <div style="position:relative;">
+          <div style="display:flex; align-items:center; background: var(--input-bg); border: 1px solid var(--border); border-radius: 20px; padding: 12px 20px; cursor:pointer;" onclick="document.getElementById('customCategoryList').style.display = document.getElementById('customCategoryList').style.display === 'none' ? 'block' : 'none'; document.getElementById('customPriorityList').style.display='none'; event.stopPropagation();">
+            <i data-lucide="grid" style="color: var(--text-muted); margin-right: 12px; width: 18px;"></i>
+            <div style="flex:1;">
+              <span style="font-size:12px; color:var(--text-muted); display:block; line-height:1; margin-bottom:2px;">Category</span>
+              <span id="modalTaskCategoryText" style="font-size:14px; color:var(--text-main);">💼 Work</span>
+            </div>
+            <i data-lucide="chevron-down" style="color:var(--text-muted); width:16px;"></i>
           </div>
-          <i data-lucide="chevron-down" style="color:var(--text-muted); width:16px;"></i>
+          
+          <div id="customCategoryList" style="display:none; position:absolute; top:calc(100% + 8px); left:0; width:100%; background:var(--card-bg); border-radius:16px; border:1px solid var(--border); box-shadow:0 10px 30px rgba(0,0,0,0.1); z-index:100; overflow:hidden;">
+            <div class="dropdown-item" onclick="document.getElementById('modalTaskCategoryText').innerText = '💼 Work'; this.parentNode.style.display='none';">💼 Work</div>
+            <div class="dropdown-item" onclick="document.getElementById('modalTaskCategoryText').innerText = '📚 Study'; this.parentNode.style.display='none';">📚 Study</div>
+            <div class="dropdown-item" onclick="document.getElementById('modalTaskCategoryText').innerText = '💻 Projects'; this.parentNode.style.display='none';">💻 Projects</div>
+            <div class="dropdown-item" onclick="document.getElementById('modalTaskCategoryText').innerText = '🏠 Personal'; this.parentNode.style.display='none';">🏠 Personal</div>
+            <div class="dropdown-item" onclick="document.getElementById('modalTaskCategoryText').innerText = '🛒 Shopping'; this.parentNode.style.display='none';">🛒 Shopping</div>
+          </div>
         </div>
 
-        <div style="display:flex; align-items:center; background: var(--input-bg); border: 1px solid var(--border); border-radius: 20px; padding: 12px 20px;">
-          <i data-lucide="flag" style="color: var(--text-muted); margin-right: 12px; width: 18px;"></i>
-          <div style="flex:1;">
-            <span style="font-size:12px; color:var(--text-muted); display:block; line-height:1; margin-bottom:2px;">Priority</span>
-            <select id="modalTaskPriority" style="background:transparent; border:none; outline:none; font-size:14px; width:100%; color:var(--text-main); font-family:inherit; appearance:none;">
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="low">Low</option>
-            </select>
+        <div style="position:relative;">
+          <div style="display:flex; align-items:center; background: var(--input-bg); border: 1px solid var(--border); border-radius: 20px; padding: 12px 20px; cursor:pointer;" onclick="document.getElementById('customPriorityList').style.display = document.getElementById('customPriorityList').style.display === 'none' ? 'block' : 'none'; document.getElementById('customCategoryList').style.display='none'; event.stopPropagation();">
+            <i data-lucide="flag" style="color: var(--text-muted); margin-right: 12px; width: 18px;"></i>
+            <div style="flex:1;">
+              <span style="font-size:12px; color:var(--text-muted); display:block; line-height:1; margin-bottom:2px;">Priority</span>
+              <span id="modalTaskPriorityText" style="font-size:14px; color:var(--text-main); text-transform:capitalize;">Medium</span>
+            </div>
+            <i data-lucide="chevron-down" style="color:var(--text-muted); width:16px;"></i>
           </div>
-          <i data-lucide="chevron-down" style="color:var(--text-muted); width:16px;"></i>
+          
+          <div id="customPriorityList" style="display:none; position:absolute; top:calc(100% + 8px); left:0; width:100%; background:var(--card-bg); border-radius:16px; border:1px solid var(--border); box-shadow:0 10px 30px rgba(0,0,0,0.1); z-index:100; overflow:hidden;">
+            <div class="dropdown-item" onclick="document.getElementById('modalTaskPriorityText').innerText = 'Medium'; this.parentNode.style.display='none';">Medium</div>
+            <div class="dropdown-item" onclick="document.getElementById('modalTaskPriorityText').innerText = 'High'; this.parentNode.style.display='none';">High</div>
+            <div class="dropdown-item" onclick="document.getElementById('modalTaskPriorityText').innerText = 'Low'; this.parentNode.style.display='none';">Low</div>
+          </div>
         </div>
         
         <div style="display:flex; align-items:flex-start; background: var(--input-bg); border: 1px solid var(--border); border-radius: 20px; padding: 16px 20px;">
@@ -752,6 +739,14 @@
         <div style="background:var(--card-bg); padding:16px; border-radius:16px; border:1px solid var(--border);">
           <div style="display:flex; align-items:center; gap:8px; color:var(--text-muted); margin-bottom:8px;"><i data-lucide="clock" style="width:16px;"></i> <span style="font-size:13px; font-weight:600;">Created</span></div>
           <strong id="panelCreated" style="color:var(--text-main); font-size:15px;"></strong>
+        </div>
+      </div>
+
+      <div style="background:var(--card-bg); padding:16px; border-radius:16px; border:1px solid var(--border); margin-top:-4px;">
+        <div style="display:flex; align-items:center; gap:8px; color:var(--text-muted); margin-bottom:8px;"><i data-lucide="clock" style="width:16px;"></i> <span style="font-size:13px; font-weight:600;">Time Spent (minutes)</span></div>
+        <div style="display:flex; gap:12px;">
+          <input type="number" id="panelTimeSpent" min="0" style="flex:1; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-main); color:var(--text-main);" placeholder="e.g. 45">
+          <button id="panelSaveTimeBtn" style="padding:10px 16px; background:var(--primary); color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Save</button>
         </div>
       </div>
 

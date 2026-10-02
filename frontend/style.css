@@ -1366,6 +1366,12 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
     grid-template-columns: 1fr;
   }
   
+  #insightsTopRow,
+  #insightsMiddleRow,
+  #insightsBottomRow {
+    grid-template-columns: 1fr !important;
+  }
+  
   .dash-main-col {
     display: contents;
   }
@@ -1488,4 +1494,15 @@ input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:foc
   #calendarView p {
     font-size: 12px !important;
   }
+}
+
+.dropdown-item {
+  padding: 12px 20px;
+  font-size: 14px;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.dropdown-item:hover {
+  background: var(--input-bg);
 }

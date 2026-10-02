@@ -4,6 +4,10 @@ let focusSecondsLeft = 25 * 60;
 let isFocusPaused = true;
 let currentFocusTaskId = null;
 
+const API_BASE = (window.location.hostname.includes('render.com')) 
+  ? 'https://dailydots-g1iy.onrender.com'
+  : 'http://localhost:5000';
+
 // --- AUTH LOGIC ---
 function showSignup() {
   document.getElementById("loginCard").style.display = "none";
@@ -23,7 +27,7 @@ async function signup() {
   const password = document.getElementById("signupPassword").value;
   if (!username || !email || !password) return alert("Please fill in all fields ✨");
   try {
-    const res = await fetch("https://dailydots-g1iy.onrender.com/signup", {
+    const res = await fetch(`${API_BASE}/signup`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, email, password })
     });
@@ -41,7 +45,7 @@ async function login() {
   const password = document.getElementById("loginPassword").value;
   if (!username || !password) return alert("Please enter both username and password 🌸");
   try {
-    const res = await fetch("https://dailydots-g1iy.onrender.com/login", {
+    const res = await fetch(`${API_BASE}/login`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password })
     });
@@ -134,7 +138,7 @@ function switchView(view) {
 async function loadTasks() {
   const userId = localStorage.getItem("userId");
   try {
-    const res = await fetch(`https://dailydots-g1iy.onrender.com/tasks?userId=${userId}`);
+    const res = await fetch(`${API_BASE}/tasks?userId=${userId}`);
     tasks = await res.json();
     renderTasks();
     renderOverview();
@@ -174,7 +178,7 @@ document.addEventListener('click', function(e) {
 async function loadProfile() {
   const userId = localStorage.getItem("userId");
   try {
-    const res = await fetch(`https://dailydots-g1iy.onrender.com/profile/${userId}`);
+    const res = await fetch(`${API_BASE}/profile/${userId}`);
     const data = await res.json();
     
     // Update old profile view (if still used)
@@ -220,7 +224,7 @@ async function addTask() {
   const userId = localStorage.getItem("userId");
   const task = { title, description: "", category: "💼 Work", dueDate, completed: false, userId, priority: "medium" };
   try {
-    await fetch("https://dailydots-g1iy.onrender.com/tasks", {
+    await fetch(`${API_BASE}/tasks`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(task)
     });
@@ -239,8 +243,12 @@ function openAddTaskModal() {
   dateInput.value = dateStr;
   dateInput.min = dateStr; // Restrict past dates
 
-  document.getElementById("modalTaskCategory").value = "💼 Work";
-  document.getElementById("modalTaskPriority").value = "medium";
+  const catText = document.getElementById("modalTaskCategoryText");
+  if(catText) catText.innerText = "💼 Work";
+  
+  const priText = document.getElementById("modalTaskPriorityText");
+  if(priText) priText.innerText = "Medium";
+
   document.getElementById("modalTaskDesc").value = "";
   
   document.getElementById("addTaskModal").style.display = "flex";
@@ -256,8 +264,8 @@ async function submitModalTask() {
   
   const title = document.getElementById("modalTaskTitle").value.trim();
   const dueDate = document.getElementById("modalTaskDue").value;
-  const category = document.getElementById("modalTaskCategory").value;
-  const priority = document.getElementById("modalTaskPriority").value;
+  const category = document.getElementById("modalTaskCategoryText").innerText;
+  const priority = document.getElementById("modalTaskPriorityText").innerText.toLowerCase();
   const description = document.getElementById("modalTaskDesc").value.trim();
 
   if (!title) {
@@ -270,7 +278,7 @@ async function submitModalTask() {
   
   isSubmittingTask = true;
   try {
-    await fetch("https://dailydots-g1iy.onrender.com/tasks", {
+    await fetch(`${API_BASE}/tasks`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(task)
     });
@@ -368,6 +376,7 @@ function renderTasks() {
         ${task.description ? `<p style="font-size:13px; color:var(--text-muted); margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${task.description}</p>` : ""}
         <div style="margin-top: 8px;">
           ${task.category ? `<span class="category-badge">${task.category}</span>` : ""}
+          ${task.timeSpent ? `<span class="category-badge" style="background:var(--bg-main); color:var(--text-muted); border: 1px solid var(--border); margin-right:8px;"><i data-lucide="clock" style="width:12px; height:12px; margin-right:4px; vertical-align:middle; display:inline-block;"></i>${task.timeSpent >= 60 ? Math.floor(task.timeSpent/60) + 'h ' + (task.timeSpent%60) + 'm' : task.timeSpent + 'm'}</span>` : ""}
           <small>Due: ${task.dueDate}</small>
         </div>
       </div>
@@ -649,8 +658,11 @@ function openTaskDetails(id) {
   document.getElementById("panelDue").textContent = new Date(task.dueDate).toLocaleDateString("en-US", { day: 'numeric', month: 'short', year: 'numeric' });
   document.getElementById("panelCreated").textContent = new Date(task.createdAt).toLocaleDateString("en-US", { day: 'numeric', month: 'short', year: 'numeric' });
   
+  document.getElementById("panelTimeSpent").value = task.timeSpent || 0;
+  
   document.getElementById("panelEditBtn").onclick = () => editTask(id);
   document.getElementById("panelDeleteBtn").onclick = () => { deleteTask(id); closeTaskDetails(); };
+  document.getElementById("panelSaveTimeBtn").onclick = () => saveTimeSpent(id);
   
   document.getElementById("taskDetailsOverlay").style.display = "block";
   setTimeout(() => {
@@ -672,7 +684,7 @@ async function loadRoutines() {
   const userId = localStorage.getItem("userId");
   if (!userId) return;
   try {
-    const res = await fetch(`https://dailydots-g1iy.onrender.com/routines?userId=${userId}`);
+    const res = await fetch(`${API_BASE}/routines?userId=${userId}`);
     if (res.ok) {
       routines = await res.json();
       renderRoutines();
@@ -774,7 +786,7 @@ async function submitRoutine() {
   
   isSubmittingRoutine = true;
   try {
-    await fetch("https://dailydots-g1iy.onrender.com/routines", {
+    await fetch(`${API_BASE}/routines`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, title, icon: icon || '💧', category })
     });
@@ -786,7 +798,7 @@ async function submitRoutine() {
 
 async function completeRoutine(id) {
   try {
-    await fetch(`https://dailydots-g1iy.onrender.com/routines/${id}/complete`, {
+    await fetch(`${API_BASE}/routines/${id}/complete`, {
       method: "PUT"
     });
     loadRoutines();
@@ -796,7 +808,7 @@ async function completeRoutine(id) {
 async function deleteRoutine(id) {
   if (!confirm("Are you sure you want to delete this routine? This will delete all its history.")) return;
   try {
-    await fetch(`https://dailydots-g1iy.onrender.com/routines/${id}`, {
+    await fetch(`${API_BASE}/routines/${id}`, {
       method: "DELETE"
     });
     loadRoutines();
@@ -807,7 +819,7 @@ async function deleteRoutine(id) {
 async function toggleComplete(id) {
   const task = tasks.find(t => t._id === id);
   try {
-    await fetch(`https://dailydots-g1iy.onrender.com/tasks/${id}`, {
+    await fetch(`${API_BASE}/tasks/${id}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
         completed: !task.completed,
@@ -824,7 +836,7 @@ async function editTask(id) {
   if (newTitle === null) return;
   const newDesc = prompt("Edit Task Description:", task.description || "");
   try {
-    await fetch(`https://dailydots-g1iy.onrender.com/tasks/${id}`, {
+    await fetch(`${API_BASE}/tasks/${id}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title: newTitle.trim(), description: newDesc.trim() })
     });
@@ -833,10 +845,44 @@ async function editTask(id) {
   } catch (err) { console.error(err); }
 }
 
+async function saveTimeSpent(id) {
+  const timeInput = document.getElementById("panelTimeSpent").value;
+  const timeSpent = parseInt(timeInput, 10) || 0;
+  
+  try {
+    await fetch(`${API_BASE}/tasks/${id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ timeSpent })
+    });
+    // Visual feedback
+    const btn = document.getElementById("panelSaveTimeBtn");
+    const originalText = btn.textContent;
+    btn.textContent = "Saved!";
+    btn.style.background = "#10b981";
+    setTimeout(() => {
+      btn.textContent = originalText;
+      btn.style.background = "var(--primary)";
+    }, 2000);
+    
+    // Update local state without full reload
+    const task = tasks.find(t => t._id === id);
+    if(task) task.timeSpent = timeSpent;
+    
+    renderTasks();
+    renderOverview();
+    if (document.getElementById('analyticsView') && document.getElementById('analyticsView').style.display !== 'none') {
+      renderAnalytics();
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Error saving time.");
+  }
+}
+
 async function deleteTask(id) {
   if (!confirm("Delete this task? 🌸")) return;
   try {
-    await fetch(`https://dailydots-g1iy.onrender.com/tasks/${id}`, { method: "DELETE" });
+    await fetch(`${API_BASE}/tasks/${id}`, { method: "DELETE" });
     loadTasks();
   } catch (err) { console.error(err); }
 }
@@ -1010,7 +1056,9 @@ function renderFullCalendar() {
 }
 
 // --- ANALYTICS LOGIC ---
-let chartCompletion;
+let tasksChartInst;
+let routinesChartInst;
+let categoriesChartInst;
 let insightsFilter = 'tasks';
 
 function setInsightsFilter(filter) {
@@ -1032,228 +1080,275 @@ function renderAnalytics() {
 
   document.getElementById("insightsTodayDate").textContent = today.toLocaleDateString("en-US", { day: 'numeric', month: 'short' });
   
-  let totalTasksCount = 0;
-  let completedCount = 0;
-  let pendingCount = 0;
-  let overdueCount = 0;
-  let carryOverCount = 0;
+  // Calculate Stats
+  let longestStreak = 0;
+  if (routines && routines.length > 0) {
+    longestStreak = Math.max(...routines.map(r => r.longestStreak || 0));
+  }
   
-  const categoryStats = {};
+  let completedToday = 0;
+  tasks.forEach(t => {
+    if (t.completed && t.completedAt && t.completedAt.startsWith(todayStr)) completedToday++;
+  });
+  if (routines) {
+    routines.forEach(r => {
+      const entry = r.history.find(h => h.date === todayStr);
+      if (entry && entry.status === 'completed') completedToday++;
+    });
+  }
   
-  // Tasks Today
-  const todaysTasks = tasks.filter(t => {
-    if (!t.dueDate) return false;
-    return t.dueDate.startsWith(todayStr);
+  let pendingTasksCount = tasks.filter(t => !t.completed).length;
+  
+  let totalTimeLogged = 0;
+  tasks.forEach(t => {
+    if (t.completed && t.timeSpent) {
+      totalTimeLogged += t.timeSpent;
+    }
   });
   
-  if (insightsFilter === 'tasks') {
-    totalTasksCount = todaysTasks.length;
-    completedCount = todaysTasks.filter(t => t.completed).length;
-    pendingCount = todaysTasks.filter(t => !t.completed).length;
+  const elLongestStreak = document.getElementById("insightLongestStreak");
+  if (elLongestStreak) elLongestStreak.textContent = `${longestStreak} 🔥`;
+  
+  const elCompletedToday = document.getElementById("insightCompletedToday");
+  if (elCompletedToday) elCompletedToday.textContent = completedToday;
+  
+  const elPendingTasks = document.getElementById("insightPendingTasks");
+  if (elPendingTasks) elPendingTasks.textContent = pendingTasksCount;
+  
+  const elTimeLogged = document.getElementById("insightTimeLogged");
+  if (elTimeLogged) {
+    // Also update the label text
+    const labelEl = elTimeLogged.previousElementSibling;
+    if (labelEl) labelEl.textContent = "Total Tracked Time";
     
-    // Overdue Tasks (from previous days that are not completed)
-    overdueCount = tasks.filter(t => {
-      if(t.completed || !t.dueDate) return false;
-      const due = new Date(t.dueDate);
-      due.setHours(0,0,0,0);
-      return due.getTime() < today.getTime();
-    }).length;
-    
-    carryOverCount = overdueCount; // Carry over is basically uncompleted past tasks
-    
-    // Category focus (for today's tasks)
-    todaysTasks.forEach(t => {
-      const cat = t.category || "📝 General";
-      if(!categoryStats[cat]) categoryStats[cat] = { total: 0, completed: 0 };
-      categoryStats[cat].total++;
-      if (t.completed) categoryStats[cat].completed++;
-    });
-  } else {
-    // ROUTINES logic
-    if (routines) {
-      totalTasksCount = routines.length;
-      routines.forEach(r => {
-        const entry = r.history.find(h => h.date === todayStr);
-        if (entry && entry.status === 'completed') completedCount++;
-        else pendingCount++;
-      });
+    const hrs = Math.floor(totalTimeLogged / 60);
+    const mins = totalTimeLogged % 60;
+    if (hrs > 0) {
+      elTimeLogged.textContent = `${hrs}h ${mins}m`;
+    } else {
+      elTimeLogged.textContent = `${mins}m`;
     }
   }
+  
+  const todaysTasks = tasks.filter(t => t.dueDate && t.dueDate.startsWith(todayStr));
 
-  const completionPct = totalTasksCount ? Math.round((completedCount / totalTasksCount) * 100) : 0;
+  // Focus List (All tasks & routines category stats)
+  const categoryStats = {};
   
-  document.getElementById("insightTotalTasks").textContent = totalTasksCount;
-  document.getElementById("insightCompleted").textContent = completedCount;
-  document.getElementById("insightCompletionPct").textContent = `${completionPct}%`;
+  // Include all tasks
+  tasks.forEach(t => {
+    if (t.category) {
+      const cat = t.category;
+      if(!categoryStats[cat]) categoryStats[cat] = { total: 0, completed: 0, timeSpent: 0 };
+      categoryStats[cat].total++;
+      if (t.completed) {
+        categoryStats[cat].completed++;
+        if (t.timeSpent) categoryStats[cat].timeSpent += t.timeSpent;
+      }
+    }
+  });
   
-  document.getElementById("statusCompleted").textContent = completedCount;
-  document.getElementById("statusPending").textContent = pendingCount;
-  document.getElementById("statusOverdue").textContent = overdueCount;
-  
-  document.getElementById("insightCarryOver").textContent = `${carryOverCount} task${carryOverCount !== 1 ? 's' : ''}`;
-
-  // Focus List
-  const focusListEl = document.getElementById("insightsFocusList");
-  focusListEl.innerHTML = "";
-  
-  // Sort categories by total tasks today
-  const sortedCategories = Object.keys(categoryStats).sort((a, b) => categoryStats[b].total - categoryStats[a].total);
-  
-  if (sortedCategories.length === 0) {
-    focusListEl.innerHTML = `<div style="color:var(--text-muted); font-size:14px; text-align:center; padding:20px;">No tasks for today.</div>`;
-  } else {
-    sortedCategories.forEach(cat => {
-      const stats = categoryStats[cat];
-      const pct = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
-      const totalPctOfToday = totalTasksCount > 0 ? Math.round((stats.total / totalTasksCount) * 100) : 0;
-      
-      let barColor = 'var(--primary)';
-      if(cat.includes('Personal')) barColor = '#3b82f6';
-      else if(cat.includes('Study')) barColor = '#10b981';
-      else if(cat.includes('General')) barColor = '#f59e0b';
-      else if(cat.includes('Shopping')) barColor = '#8b5cf6';
-      else if(cat.includes('Projects')) barColor = '#ea580c';
-
-      focusListEl.innerHTML += `
-        <div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:14px;">
-            <span style="font-weight:600; color:var(--text-main);">${cat}</span>
-            <span style="font-weight:600; color:var(--text-muted);">${totalPctOfToday}%</span>
-          </div>
-          <div style="width:100%; height:8px; background:var(--input-bg); border-radius:4px; overflow:hidden;">
-            <div style="height:100%; width:${totalPctOfToday}%; background:${barColor}; border-radius:4px;"></div>
-          </div>
-          <div style="font-size:12px; color:var(--text-muted); margin-top:6px;">
-            ${stats.total} task${stats.total !== 1 ? 's' : ''} · ${stats.completed} completed · ${pct}% done
-          </div>
-        </div>
-      `;
+  // Include routines
+  if (routines) {
+    routines.forEach(r => {
+      if (r.category) {
+        const cat = r.category;
+        if(!categoryStats[cat]) categoryStats[cat] = { total: 0, completed: 0, timeSpent: 0 };
+        categoryStats[cat].total++;
+        
+        const entry = r.history.find(h => h.date === todayStr);
+        if (entry && entry.status === 'completed') categoryStats[cat].completed++;
+      }
     });
   }
+  
 
-  // Top Category All-Time
+  // Update Carry Over
+  let carryOverCount = tasks.filter(t => !t.completed && t.dueDate && new Date(t.dueDate).getTime() < today.getTime()).length;
+  if(document.getElementById("insightCarryOver")) document.getElementById("insightCarryOver").textContent = `${carryOverCount} task${carryOverCount !== 1 ? 's' : ''}`;
+
+  // Update Top Category All-Time
   let bestCat = "-";
   let maxCompleted = 0;
   const allTimeCatStats = {};
-  if (insightsFilter === 'tasks') {
-    tasks.forEach(t => {
-      if(t.completed) {
-        const cat = t.category || "📝 General";
-        allTimeCatStats[cat] = (allTimeCatStats[cat] || 0) + 1;
+  tasks.forEach(t => {
+    if(t.completed && t.category) {
+      allTimeCatStats[t.category] = (allTimeCatStats[t.category] || 0) + 1;
+    }
+  });
+  if (routines) {
+    routines.forEach(r => {
+      if (r.category) {
+        const comps = r.history.filter(h => h.status === 'completed').length;
+        if (comps > 0) {
+          allTimeCatStats[r.category] = (allTimeCatStats[r.category] || 0) + comps;
+        }
       }
     });
-    for(let cat in allTimeCatStats) {
-      if(allTimeCatStats[cat] > maxCompleted) {
-        maxCompleted = allTimeCatStats[cat];
-        bestCat = cat;
-      }
+  }
+  for(let cat in allTimeCatStats) {
+    if(allTimeCatStats[cat] > maxCompleted) {
+      maxCompleted = allTimeCatStats[cat];
+      bestCat = cat;
     }
   }
-  document.getElementById("insightTopCategoryName").textContent = bestCat;
-  document.getElementById("insightTopCategoryCount").textContent = `${maxCompleted} completed`;
+  if(document.getElementById("insightTopCategoryName")) document.getElementById("insightTopCategoryName").textContent = bestCat;
+  if(document.getElementById("insightTopCategoryCount")) document.getElementById("insightTopCategoryCount").textContent = `${maxCompleted} completed`;
 
-  // Daily Completion Chart (Last 7 Days)
+
+  // Chart Data calculations
   const last7Days = [];
   for(let i = 6; i >= 0; i--) {
     let d = new Date(today);
     d.setDate(today.getDate() - i);
-    last7Days.push(d.toISOString().split("T")[0]);
+    const localDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    last7Days.push(localDateStr);
   }
+
   const labels = last7Days.map(d => {
     const obj = new Date(d);
     return `${obj.getDate()} ${obj.toLocaleString('default', { month: 'short' })}`;
   });
   
-  // Calculate completion percentage per day
-  const completionData = last7Days.map(dateStr => {
-    if (insightsFilter === 'tasks') {
-      const dayTasks = tasks.filter(t => t.dueDate && t.dueDate.startsWith(dateStr));
-      if (dayTasks.length === 0) return 0;
-      // count completed on that day or generally completed? 
-      // If a task is due on that day and is completed, we count it as completed for that day's goal.
-      const comp = dayTasks.filter(t => t.completed).length;
-      return Math.round((comp / dayTasks.length) * 100);
-    } else {
-      if (!routines || routines.length === 0) return 0;
-      let comp = 0;
-      routines.forEach(r => {
-        const entry = r.history.find(h => h.date === dateStr);
-        if (entry && entry.status === 'completed') comp++;
-      });
-      return Math.round((comp / routines.length) * 100);
-    }
+  const tasksCompletionData = last7Days.map(dateStr => {
+    const dayTasks = tasks.filter(t => t.dueDate && t.dueDate.startsWith(dateStr));
+    if (dayTasks.length === 0) return 0;
+    const comp = dayTasks.filter(t => t.completed).length;
+    return Math.round((comp / dayTasks.length) * 100);
   });
   
-  const ctxCompletion = document.getElementById('dailyCompletionChart');
-  if(chartCompletion) { chartCompletion.destroy(); chartCompletion = null; }
+  const routinesCompletionData = last7Days.map(dateStr => {
+    if (!routines || routines.length === 0) return 0;
+    let comp = 0;
+    routines.forEach(r => {
+      const entry = r.history.find(h => h.date === dateStr);
+      if (entry && entry.status === 'completed') comp++;
+    });
+    return Math.round((comp / routines.length) * 100);
+  });
   
-  if (ctxCompletion) {
-    const gradient = ctxCompletion.getContext('2d').createLinearGradient(0, 0, 0, 200);
+  // Chart 1: Tasks Chart (Line)
+  const ctxTasks = document.getElementById('tasksChart');
+  if(tasksChartInst) { tasksChartInst.destroy(); }
+  if (ctxTasks) {
+    const gradient = ctxTasks.getContext('2d').createLinearGradient(0, 0, 0, 200);
     gradient.addColorStop(0, 'rgba(172, 38, 48, 0.2)');
     gradient.addColorStop(1, 'rgba(172, 38, 48, 0.0)');
-
-    chartCompletion = new Chart(ctxCompletion, {
+    tasksChartInst = new Chart(ctxTasks, {
       type: 'line',
       data: {
         labels: labels,
         datasets: [{
-          label: 'Completion %',
-          data: completionData,
+          label: 'Task Completion %',
+          data: tasksCompletionData,
           borderColor: '#ac2630',
           backgroundColor: gradient,
           borderWidth: 3,
-          pointBackgroundColor: '#ac2630',
-          pointBorderColor: '#fff',
-          pointHoverBackgroundColor: '#fff',
-          pointHoverBorderColor: '#ac2630',
-          pointRadius: 5,
-          pointHoverRadius: 7,
           fill: true,
           tension: 0.3
         }]
       },
-      options: { 
-        responsive: true, 
-        maintainAspectRatio: false, 
-        plugins: { 
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: '#fff',
-            titleColor: '#000',
-            bodyColor: '#555',
-            borderColor: '#e5e7eb',
-            borderWidth: 1,
-            padding: 10,
-            displayColors: false,
-            callbacks: {
-              label: function(context) {
-                return context.parsed.y + '% completed';
-              }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+    });
+  }
+
+  // Chart 2: Routines Chart (Bar)
+  const ctxRoutines = document.getElementById('routinesChart');
+  if(routinesChartInst) { routinesChartInst.destroy(); }
+  if (ctxRoutines) {
+    routinesChartInst = new Chart(ctxRoutines, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Routine Completion %',
+          data: routinesCompletionData,
+          backgroundColor: '#3b82f6',
+          borderRadius: 4
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+    });
+  }
+
+  // Chart 3: Categories Chart (Horizontal Bar)
+  const ctxCategories = document.getElementById('categoriesChart');
+  if(categoriesChartInst) { categoriesChartInst.destroy(); }
+  if (ctxCategories) {
+    const rawLabels = Object.keys(categoryStats);
+    const customLabelsPlugin = {
+      id: 'customDataLabels',
+      afterDatasetsDraw: (chart) => {
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.font = "600 13px Inter";
+        
+        // Read color from CSS variable for text-main, fallback to dark
+        const rootStyles = getComputedStyle(document.documentElement);
+        ctx.fillStyle = rootStyles.getPropertyValue('--text-main').trim() || '#3b1a1c';
+        ctx.textBaseline = "middle";
+        
+        const meta = chart.getDatasetMeta(0);
+        meta.data.forEach((bar, index) => {
+          const stat = Object.values(categoryStats)[index];
+          const time = stat.timeSpent || 0;
+          if (time > 0) {
+            const hrs = Math.floor(time / 60);
+            const mins = time % 60;
+            const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+            ctx.fillText(timeStr, bar.x + 8, bar.y);
+          }
+        });
+        ctx.restore();
+      }
+    };
+    
+    const catLabels = rawLabels.map(cat => {
+      const stat = categoryStats[cat];
+      return `${cat} (${stat.total} tasks)`;
+    });
+    
+    // Bar length is determined by timeSpent
+    const catData = Object.values(categoryStats).map(c => c.timeSpent || 0);
+    
+    if(catLabels.length > 0) {
+      categoriesChartInst = new Chart(ctxCategories, {
+        type: 'bar',
+        plugins: [customLabelsPlugin],
+        data: {
+          labels: catLabels,
+          datasets: [{
+            data: catData,
+            backgroundColor: ['#10b981', '#f59e0b', '#8b5cf6', '#ea580c', '#3b82f6'],
+            borderRadius: 6
+          }]
+        },
+        options: { 
+          indexAxis: 'y',
+          responsive: true, 
+          maintainAspectRatio: false, 
+          layout: {
+            padding: { right: 60 } // Extra padding for the text
+          },
+          plugins: { 
+            legend: { 
+              display: false
+            },
+            tooltip: {
+              enabled: false
+            }
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              ticks: { precision: 0 }
             }
           }
-        }, 
-        scales: { 
-          x: { 
-            grid: { display: false, drawBorder: false },
-            ticks: { color: '#888', font: { size: 12 } }
-          },
-          y: { 
-            min: 0,
-            max: 100,
-            grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false, borderDash: [5, 5] },
-            ticks: { 
-              stepSize: 25, 
-              color: '#888', 
-              font: { size: 12 },
-              callback: function(value) {
-                return value + '%';
-              }
-            }
-          } 
-        },
-        interaction: { intersect: false, mode: 'index' }
-      }
-    });
+        }
+      });
+    } else {
+      ctxCategories.getContext('2d').clearRect(0, 0, ctxCategories.width, ctxCategories.height);
+    }
   }
 }
 
@@ -1262,3 +1357,10 @@ window.onload = () => {
   else { document.getElementById("authPage").style.display = "flex"; document.getElementById("app").style.display = "none"; }
   updateDailyThought();
 };
+
+window.addEventListener('click', () => {
+  const catList = document.getElementById('customCategoryList');
+  const priList = document.getElementById('customPriorityList');
+  if (catList) catList.style.display = 'none';
+  if (priList) priList.style.display = 'none';
+});

@@ -1,0 +1,1 @@
+const mongoose = require('mongoose'); require('dotenv').config(); mongoose.connect(process.env.MONGO_URL).then(async () => { const Task = require('./models/task'); const tasks = await Task.find({ timeSpent: { $gt: 0 } }); console.log(tasks.map(t => ({ title: t.title, timeSpent: t.timeSpent, cat: t.category, completed: t.completed }))); process.exit(0); });

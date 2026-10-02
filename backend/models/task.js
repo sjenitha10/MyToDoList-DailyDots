@@ -12,7 +12,11 @@ const TaskSchema = new mongoose.Schema({
     default: false
   },
   completedAt: Date,
-  userId: String
+  userId: String,
+  timeSpent: {
+    type: Number,
+    default: 0
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model("Task", TaskSchema);

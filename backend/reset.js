@@ -1,0 +1,1 @@
+const mongoose = require('mongoose'); require('dotenv').config(); mongoose.connect(process.env.MONGO_URL).then(async () => { const Task = require('./models/task'); await Task.updateMany({ timeSpent: 80, title: 'eating' }, { $set: { timeSpent: 0 } }); console.log('Reset'); process.exit(0); });
