@@ -4,9 +4,9 @@ let focusSecondsLeft = 25 * 60;
 let isFocusPaused = true;
 let currentFocusTaskId = null;
 
-const API_BASE = (window.location.hostname.includes('render.com')) 
-  ? 'https://dailydots-g1iy.onrender.com'
-  : 'http://localhost:5000';
+const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+  ? 'http://localhost:5000'
+  : 'https://dailydots-g1iy.onrender.com';
 
 // --- AUTH LOGIC ---
 function showSignup() {
