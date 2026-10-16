@@ -85,6 +85,7 @@ function initApp() {
   loadTasks();
   loadRoutines();
   loadProfile();
+  switchView("overview");
 }
 
 function switchView(view) {
@@ -101,7 +102,7 @@ function switchView(view) {
   });
 
   if (view === 'overview') {
-    document.getElementById("overviewView").style.display = "block";
+    document.getElementById("overviewView").style.display = "flex";
     document.getElementById("navOverview").classList.add("active");
     renderOverview();
   } else if (view === 'tasks') {
@@ -122,6 +123,8 @@ function switchView(view) {
     if(document.getElementById("navAnalytics")) document.getElementById("navAnalytics").classList.add("active");
     renderAnalytics();
   }
+  const profilePopup = document.getElementById("profilePopup");
+  if (profilePopup) profilePopup.classList.remove("active");
   
   // Close mobile sidebar if open
   const sidebar = document.getElementById("sidebar");
@@ -142,7 +145,6 @@ async function loadTasks() {
     tasks = await res.json();
     renderTasks();
     renderOverview();
-    renderCalendar();
   } catch (err) { console.error("Failed to load tasks", err); }
 }
 
@@ -249,7 +251,6 @@ function setTaskModalMode(mode) {
   const isEdit = mode === "edit";
   document.getElementById("taskModalHeading").textContent = isEdit ? "Edit Task" : "Add Task";
   document.getElementById("taskModalSubheading").textContent = isEdit ? "Update any of the details below." : "Keep going, you got this!";
-  document.getElementById("modalTimeSpentWrap").style.display = isEdit ? "flex" : "none";
   document.getElementById("taskModalSubmitLabel").textContent = isEdit ? "Save Changes" : "Add Task";
 }
 
@@ -272,7 +273,6 @@ function openAddTaskModal() {
   if(priText) priText.innerText = "Medium";
 
   document.getElementById("modalTaskDesc").value = "";
-  document.getElementById("modalTaskTimeSpent").value = "";
   document.getElementById("customCategoryList").style.display = "none";
   document.getElementById("customPriorityList").style.display = "none";
   
@@ -306,9 +306,7 @@ async function submitModalTask() {
   const task = { title, description, category, dueDate, priority };
   const taskId = editingTaskId;
 
-  if (taskId) {
-    task.timeSpent = parseInt(document.getElementById("modalTaskTimeSpent").value, 10) || 0;
-  } else {
+  if (!taskId) {
     task.completed = false;
     task.userId = userId;
   }
@@ -368,6 +366,7 @@ function scheduleEndOfDayRefresh() {
   setTimeout(() => {
     renderTasks();
     renderOverview();
+    if (document.getElementById("analyticsView")?.style.display === "flex") renderAnalytics();
     scheduleEndOfDayRefresh();
   }, delay);
 }
@@ -430,7 +429,6 @@ function renderTasks() {
         ${task.description ? `<p style="font-size:13px; color:var(--text-muted); margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${task.description}</p>` : ""}
         <div style="margin-top: 8px;">
           ${task.category ? `<span class="category-badge">${task.category}</span>` : ""}
-          ${task.timeSpent ? `<span class="category-badge" style="background:var(--bg-main); color:var(--text-muted); border: 1px solid var(--border); margin-right:8px;"><i data-lucide="clock" style="width:12px; height:12px; margin-right:4px; vertical-align:middle; display:inline-block;"></i>${task.timeSpent >= 60 ? Math.floor(task.timeSpent/60) + 'h ' + (task.timeSpent%60) + 'm' : task.timeSpent + 'm'}</span>` : ""}
           <small>Due: ${task.dueDate}</small>
         </div>
       </div>
@@ -532,161 +530,105 @@ function renderOverview() {
   const elDashGreeting = document.getElementById("dashGreeting");
   if(elDashGreeting) elDashGreeting.textContent = `${timeGreeting}, ${username}`;
 
-  const dateEl = document.getElementById("dashCurrentDate");
-  if(dateEl) {
-    const options = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
-    dateEl.textContent = new Date().toLocaleDateString('en-US', options);
-  }
-
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todaysTasks = tasks.filter(t => {
-    const due = new Date(t.dueDate);
-    due.setHours(0, 0, 0, 0);
-    return due.getTime() === today.getTime();
-  });
+  const todayStr = localDateKey(today);
+  const routineList = typeof routines !== "undefined" ? routines : [];
 
-  let todayTotal = todaysTasks.length;
-  let todayCompleted = todaysTasks.filter(t => t.completed).length;
-
-  // Add Routines to today's progress
-  let routinesTotal = 0;
-  let routinesCompleted = 0;
-  if (typeof routines !== 'undefined') {
-    routinesTotal = routines.length;
-    const todayStr = new Date().toISOString().split("T")[0];
-    routinesCompleted = routines.filter(r => {
-      const entry = r.history.find(h => h.date === todayStr);
-      return entry && entry.status === 'completed';
-    }).length;
-    
-    todayTotal += routinesTotal;
-    todayCompleted += routinesCompleted;
+  const homeDate = document.getElementById("homeDate");
+  if (homeDate) {
+    homeDate.textContent = today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
   }
 
-  const todayLeft = todayTotal - todayCompleted;
-  
+  const overdueTasks = tasks.filter(t => !t.completed && dueDay(t) && dueDay(t) < todayStr);
+  const dueTodayTasks = tasks.filter(t => dueDay(t) === todayStr);
+  const openToday = overdueTasks.length + dueTodayTasks.filter(t => !t.completed).length + routineList.filter(r => !routineDoneOn(r, todayStr)).length;
+  const doneCount = dueTodayTasks.filter(t => t.completed).length + routineList.filter(r => routineDoneOn(r, todayStr)).length;
+  const totalToday = overdueTasks.length + dueTodayTasks.length + routineList.length;
+  const progressPct = totalToday ? Math.round((doneCount / totalToday) * 100) : 0;
+
   const elDashSub = document.getElementById("dashSubGreeting");
-  if(elDashSub) elDashSub.textContent = `You have ${todayLeft} tasks/routines left today. Keep going!`;
-
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const createdToday = tasks.filter(t => { const c = new Date(t.createdAt); c.setHours(0,0,0,0); return c.getTime() === today.getTime(); }).length;
-  const createdYesterday = tasks.filter(t => { const c = new Date(t.createdAt); c.setHours(0,0,0,0); return c.getTime() === yesterday.getTime(); }).length;
-  const createdDelta = createdToday - createdYesterday;
-
-  const total = tasks.length;
-  const completed = tasks.filter(t => t.completed).length;
-  const pending = total - completed;
-  const overdueCount = tasks.filter(t => {
-    const due = new Date(t.dueDate);
-    due.setHours(0,0,0,0);
-    return due.getTime() < today.getTime() && !t.completed;
-  }).length;
-
-  const pctCompleted = total > 0 ? Math.round((completed / total) * 100) : 0;
-  const pctPending = total > 0 ? Math.round((pending / total) * 100) : 0;
-
-  if(document.getElementById("statTotal")) document.getElementById("statTotal").textContent = total;
-  if(document.getElementById("statTotalSub")) document.getElementById("statTotalSub").textContent = `${createdDelta >= 0 ? '+' : ''}${createdDelta} from yesterday`;
-  
-  if(document.getElementById("statCompleted")) document.getElementById("statCompleted").textContent = completed;
-  if(document.getElementById("statCompletedSub")) document.getElementById("statCompletedSub").textContent = `${pctCompleted}% of total`;
-  
-  if(document.getElementById("statPending")) document.getElementById("statPending").textContent = pending;
-  if(document.getElementById("statPendingSub")) document.getElementById("statPendingSub").textContent = `${pctPending}% of total`;
-  
-  if(document.getElementById("statOverdue")) document.getElementById("statOverdue").textContent = overdueCount;
-
-  // Today's Progress Bar
-  let progressPct = 0;
-  if (todayTotal > 0) progressPct = Math.round((todayCompleted / todayTotal) * 100);
-  
-  if(document.getElementById("dashProgressFill")) document.getElementById("dashProgressFill").style.width = `${progressPct}%`;
-  if(document.getElementById("dashProgressPct")) document.getElementById("dashProgressPct").textContent = `${progressPct}%`;
-  if(document.getElementById("dashProgressText")) document.getElementById("dashProgressText").textContent = `${todayCompleted} of ${todayTotal} tasks completed`;
-  
-  let motivational = "You're doing great!";
-  if (progressPct === 100 && todayTotal > 0) motivational = "Incredible work today!";
-  else if (progressPct >= 75) motivational = "You're almost there.";
-  else if (progressPct >= 50) motivational = "Halfway done, keep pushing!";
-  
-  if(document.getElementById("dashMotivational")) document.getElementById("dashMotivational").textContent = motivational;
-
-  // Render Daily Routines Card
-  const dashRoutineTitle = document.getElementById("dashRoutineTitle");
-  const dashRoutineSubtext = document.getElementById("dashRoutineSubtext");
-  
-  if (dashRoutineTitle && dashRoutineSubtext) {
-    if (routinesTotal === 0) {
-      dashRoutineTitle.textContent = "No routines set yet.";
-      dashRoutineSubtext.textContent = "Go to the Routines tab to create some habits!";
-    } else if (routinesCompleted === routinesTotal) {
-      dashRoutineTitle.textContent = `${routinesCompleted} of ${routinesTotal} routines completed!`;
-      dashRoutineSubtext.textContent = "Great job! You've finished all your habits for today.";
-    } else {
-      dashRoutineTitle.textContent = `${routinesCompleted} routine${routinesCompleted !== 1 ? 's' : ''} completed.`;
-      dashRoutineSubtext.textContent = "Hurry up to complete the other ones!";
-    }
+  if (elDashSub) {
+    if (totalToday === 0) elDashSub.textContent = "Nothing on the list today.";
+    else if (openToday === 0) elDashSub.textContent = "Today's list is finished.";
+    else elDashSub.textContent = `${openToday} left to finish today.`;
   }
 
-  // Render Mini Upcoming Tasks
-  const upcomingWidget = document.getElementById("widgetUpcomingTasks");
-  const upcomingViewAll = document.getElementById("upcomingViewAllBtn");
-  if(upcomingWidget) {
-    upcomingWidget.innerHTML = "";
-    const upcoming = tasks.filter(t => {
-      const due = new Date(t.dueDate);
-      due.setHours(0,0,0,0);
-      return due.getTime() >= today.getTime() && !t.completed;
-    });
+  const progressLabel = document.getElementById("homeProgressLabel");
+  const progressPctEl = document.getElementById("homeProgressPct");
+  const progressFill = document.getElementById("homeProgressFill");
+  if (progressLabel) progressLabel.textContent = totalToday ? `${doneCount} of ${totalToday} done` : "No items for today";
+  if (progressPctEl) progressPctEl.textContent = `${progressPct}%`;
+  if (progressFill) progressFill.style.width = `${progressPct}%`;
 
-    if (upcomingViewAll) {
-      upcomingViewAll.style.display = upcoming.length > 2 ? "inline" : "none";
-    }
+  const todayList = document.getElementById("homeTodayList");
+  const todayCount = document.getElementById("homeTodayCount");
+  if (todayList) {
+    if (todayCount) todayCount.textContent = totalToday ? `${openToday} open` : "";
 
-    if (upcoming.length === 0) {
-      upcomingWidget.innerHTML = `<div style="text-align:center; padding:30px 10px;">
-        <p style="font-size:16px; color:var(--text-muted); font-weight:500;">No upcoming tasks</p>
-      </div>`;
-    } else {
-      upcoming.slice(0, 2).forEach(t => {
-        upcomingWidget.innerHTML += `
-          <div onclick="switchView('tasks'); openTaskDetails('${t._id}');" style="display:flex; justify-content:space-between; align-items:center; background:var(--input-bg); padding:12px; border-radius:12px; cursor:pointer;">
-            <div style="display:flex; align-items:center; gap:12px;">
-              <div>
-                <span style="display:block; font-size:14px; font-weight:500;">${t.title}</span>
-                <span style="font-size:12px; color:var(--text-muted);">${new Date(t.dueDate).toLocaleDateString('en-US', {month:'short', day:'numeric'})}</span>
-              </div>
-            </div>
-            <span class="category-badge" style="background:var(--bg-main); color:var(--primary); margin:0;">${taskPriority(t)}</span>
-          </div>
-        `;
-      });
-    }
-  }
-
-  // Render inline today tasks
-  const dashToday = document.getElementById("dashTodayTasks");
-  if(dashToday) {
-    dashToday.innerHTML = "";
-    const visibleTodayTasks = todaysTasks.filter(task => !completedBeforeToday(task));
-    visibleTodayTasks.slice(0,3).forEach(task => {
-      dashToday.innerHTML += `
-        <div class="task ${task.completed?'completed':''}" style="padding:16px;" onclick="openTaskDetails('${task._id}')">
-          <div class="priority-dot dot-${taskPriority(task)}"></div>
-          <div style="display:flex; align-items:center; gap:16px;">
-            <button class="complete-btn ${task.completed ? 'done' : ''}" onclick="event.stopPropagation(); toggleComplete('${task._id}')" title="${task.completed ? 'Completed' : 'Mark as Done'}">
-              ${task.completed ? '<i data-lucide="check"></i>' : ''}
-            </button>
-            <div>
-              <strong>${task.title}</strong>
-              <small>${task.description || "No description"}</small>
-            </div>
-          </div>
+    const taskRow = (task, label) => `
+      <div class="home-row ${task.completed ? "done" : ""}" onclick="openTaskDetails('${task._id}')">
+        <button type="button" class="complete-btn ${task.completed ? "done" : ""}" onclick="event.stopPropagation(); toggleComplete('${task._id}')" title="${task.completed ? "Completed" : "Mark as Done"}">${task.completed ? '<i data-lucide="check"></i>' : ""}</button>
+        <div class="home-row-copy">
+          <strong>${escapeInsightText(task.title)}</strong>
+          <small>${escapeInsightText(label)}</small>
         </div>
-      `;
-    });
+      </div>`;
+    const routineRow = (routine) => {
+      const done = routineDoneOn(routine, todayStr);
+      return `
+        <div class="home-row ${done ? "done" : ""}" onclick="switchView('routines')">
+          <button type="button" class="complete-btn ${done ? "done" : ""}" onclick="event.stopPropagation(); ${done ? "" : `completeRoutine('${routine._id}')`}" title="${done ? "Completed" : "Mark as Done"}">${done ? '<i data-lucide="check"></i>' : ""}</button>
+          <div class="home-row-copy">
+            <strong>${escapeInsightText(`${routine.icon || ""} ${routine.title}`.trim())}</strong>
+            <small>Routine</small>
+          </div>
+        </div>`;
+    };
+
+    let html = "";
+    if (overdueTasks.length) {
+      html += `<div class="home-group-label">Overdue</div>`;
+      overdueTasks.forEach(task => { html += taskRow(task, "Overdue"); });
+    }
+    const openDue = dueTodayTasks.filter(t => !t.completed);
+    const openRoutines = routineList.filter(r => !routineDoneOn(r, todayStr));
+    if (openDue.length || openRoutines.length) {
+      if (overdueTasks.length) html += `<div class="home-group-label">Due today</div>`;
+      openDue.forEach(task => { html += taskRow(task, task.category || "Task"); });
+      openRoutines.forEach(routine => { html += routineRow(routine); });
+    }
+    const doneDue = dueTodayTasks.filter(t => t.completed);
+    const doneRoutines = routineList.filter(r => routineDoneOn(r, todayStr));
+    if (doneDue.length || doneRoutines.length) {
+      html += `<div class="home-group-label">Done</div>`;
+      doneDue.forEach(task => { html += taskRow(task, task.category || "Task"); });
+      doneRoutines.forEach(routine => { html += routineRow(routine); });
+    }
+    todayList.innerHTML = html || `<div class="home-empty-box"><p class="home-empty">Nothing planned for today.</p></div>`;
+  }
+
+  const upcomingList = document.getElementById("homeUpcomingList");
+  if (upcomingList) {
+    const upcoming = tasks
+      .filter(t => !t.completed && dueDay(t) && dueDay(t) > todayStr)
+      .sort((a, b) => dueDay(a).localeCompare(dueDay(b)))
+      .slice(0, 5);
+    if (upcoming.length === 0) {
+      upcomingList.innerHTML = `<div class="home-empty-box"><p class="home-empty">Nothing after today.</p></div>`;
+    } else {
+      upcomingList.innerHTML = upcoming.map(task => {
+        const [year, month, day] = dueDay(task).split("-").map(Number);
+        const when = new Date(year, month - 1, day).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+        return `<div class="home-row" onclick="openTaskDetails('${task._id}')">
+          <div class="home-row-copy">
+            <strong>${escapeInsightText(task.title)}</strong>
+            <small>${escapeInsightText(task.category || "Task")}</small>
+          </div>
+          <span class="home-date-chip">${escapeInsightText(when)}</span>
+        </div>`;
+      }).join("");
+    }
   }
 
   lucide.createIcons();
@@ -703,11 +645,8 @@ function openTaskDetails(id) {
   document.getElementById("panelDue").textContent = new Date(task.dueDate).toLocaleDateString("en-US", { day: 'numeric', month: 'short', year: 'numeric' });
   document.getElementById("panelCreated").textContent = new Date(task.createdAt).toLocaleDateString("en-US", { day: 'numeric', month: 'short', year: 'numeric' });
   
-  document.getElementById("panelTimeSpent").value = task.timeSpent || 0;
-  
   document.getElementById("panelEditBtn").onclick = () => editTask(id);
   document.getElementById("panelDeleteBtn").onclick = () => { deleteTask(id); closeTaskDetails(); };
-  document.getElementById("panelSaveTimeBtn").onclick = () => saveTimeSpent(id);
   
   document.getElementById("taskDetailsOverlay").style.display = "block";
   setTimeout(() => {
@@ -913,7 +852,6 @@ function editTask(id) {
   }
 
   document.getElementById("modalTaskDesc").value = task.description || "";
-  document.getElementById("modalTaskTimeSpent").value = task.timeSpent || 0;
   document.getElementById("customCategoryList").style.display = "none";
   document.getElementById("customPriorityList").style.display = "none";
 
@@ -923,83 +861,12 @@ function editTask(id) {
   if (window.lucide) lucide.createIcons();
 }
 
-async function saveTimeSpent(id) {
-  const timeInput = document.getElementById("panelTimeSpent").value;
-  const timeSpent = parseInt(timeInput, 10) || 0;
-  
-  try {
-    await fetch(`${API_BASE}/tasks/${id}`, {
-      method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ timeSpent })
-    });
-    // Visual feedback
-    const btn = document.getElementById("panelSaveTimeBtn");
-    const originalText = btn.textContent;
-    btn.textContent = "Saved!";
-    btn.style.background = "#10b981";
-    setTimeout(() => {
-      btn.textContent = originalText;
-      btn.style.background = "var(--primary)";
-    }, 2000);
-    
-    // Update local state without full reload
-    const task = tasks.find(t => t._id === id);
-    if(task) task.timeSpent = timeSpent;
-    
-    renderTasks();
-    renderOverview();
-    if (document.getElementById('analyticsView') && document.getElementById('analyticsView').style.display !== 'none') {
-      renderAnalytics();
-    }
-  } catch (err) {
-    console.error(err);
-    alert("Error saving time.");
-  }
-}
-
 async function deleteTask(id) {
   if (!confirm("Delete this task? 🌸")) return;
   try {
     await fetch(`${API_BASE}/tasks/${id}`, { method: "DELETE" });
     loadTasks();
   } catch (err) { console.error(err); }
-}
-
-// --- CALENDAR LOGIC ---
-let currentMonth = new Date();
-function changeMonth(delta) {
-  currentMonth.setMonth(currentMonth.getMonth() + delta);
-  renderCalendar();
-}
-function renderCalendar() {
-  const title = document.getElementById("calendarMonthTitle");
-  const daysContainer = document.getElementById("calendarDays");
-  if (!title || !daysContainer) return;
-
-  const year = currentMonth.getFullYear();
-  const month = currentMonth.getMonth();
-  title.textContent = currentMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-  daysContainer.innerHTML = "";
-
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  let blankDays = firstDay - 1;
-  if (blankDays === -1) blankDays = 6;
-  
-  for (let i = 0; i < blankDays; i++) daysContainer.innerHTML += `<div class="cal-day empty"></div>`;
-  
-  const today = new Date();
-  for (let d = 1; d <= daysInMonth; d++) {
-    const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === d;
-    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const dayTasks = tasks.filter(t => t.dueDate === dateStr && !t.completed);
-    
-    let dotsHtml = `<div class="cal-dots">`;
-    const numDots = Math.min(dayTasks.length, 3);
-    for (let i=0; i<numDots; i++) dotsHtml += `<div class="cal-dot"></div>`;
-    dotsHtml += `</div>`;
-    daysContainer.innerHTML += `<div class="cal-day ${isToday ? 'today' : ''}">${d}${dotsHtml}</div>`;
-  }
 }
 
 // --- INITIALIZATION & GLOBAL LISTENERS ---
@@ -1184,291 +1051,180 @@ function renderFullCalendar() {
 }
 
 // --- ANALYTICS LOGIC ---
-let tasksChartInst;
-let routinesChartInst;
-let categoriesChartInst;
+function localDateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function dueDay(task) {
+  if (!task || !task.dueDate) return "";
+  const match = String(task.dueDate).match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : "";
+}
+
+function finishedOn(task, dateKey) {
+  if (!task.completed || !task.completedAt) return false;
+  const completed = new Date(task.completedAt);
+  if (Number.isNaN(completed.getTime())) return false;
+  return localDateKey(completed) === dateKey;
+}
+
+function routineDoneOn(routine, dateKey) {
+  return (routine.history || []).some(h => h.date === dateKey && h.status === "completed");
+}
+
+function escapeInsightText(value) {
+  return String(value).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+
 function renderAnalytics() {
-  if (typeof Chart === 'undefined') {
-    console.error("Chart.js not loaded.");
-    return;
-  }
-  
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split("T")[0];
+  const todayStr = localDateKey(today);
+  const routineList = routines || [];
 
-  document.getElementById("insightsTodayDate").textContent = today.toLocaleDateString("en-US", { day: 'numeric', month: 'short' });
-  
-  // Calculate Stats
+  const dateEl = document.getElementById("insightsTodayDate");
+  if (dateEl) dateEl.textContent = today.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" });
+
+  const dueToday = tasks.filter(t => dueDay(t) === todayStr);
+  const dueTodayDone = dueToday.filter(t => t.completed).length;
+  const routinesDoneToday = routineList.filter(r => routineDoneOn(r, todayStr)).length;
+  const planned = dueToday.length + routineList.length;
+  const donePlanned = dueTodayDone + routinesDoneToday;
+  const todayPct = planned ? Math.round((donePlanned / planned) * 100) : 0;
+
+  const heroTitle = document.getElementById("insightHeroTitle");
+  const heroSub = document.getElementById("insightHeroSub");
+  if (planned === 0) {
+    if (heroTitle) heroTitle.textContent = "Nothing due today";
+    if (heroSub) heroSub.textContent = "Add a task or routine when you're ready.";
+  } else {
+    if (heroTitle) heroTitle.textContent = `${donePlanned} of ${planned} done`;
+    const left = planned - donePlanned;
+    if (heroSub) heroSub.textContent = left === 0 ? "Today's list is finished." : `${left} still open today.`;
+  }
+  const ring = document.getElementById("insightRing");
+  if (ring) ring.style.setProperty("--pct", String(todayPct));
+  const ringValue = document.getElementById("insightRingValue");
+  if (ringValue) ringValue.textContent = `${todayPct}%`;
+
+  const tasksFinishedToday = tasks.filter(t => finishedOn(t, todayStr)).length;
+  const finishedToday = tasksFinishedToday + routinesDoneToday;
+  const pending = tasks.filter(t => !t.completed).length;
+  const overdue = tasks.filter(t => !t.completed && dueDay(t) && dueDay(t) < todayStr).length;
+
+  let currentStreak = 0;
   let longestStreak = 0;
-  if (routines && routines.length > 0) {
-    longestStreak = Math.max(...routines.map(r => r.longestStreak || 0));
-  }
-  
-  let completedToday = 0;
-  tasks.forEach(t => {
-    if (t.completed && t.completedAt && t.completedAt.startsWith(todayStr)) completedToday++;
+  routineList.forEach(r => {
+    currentStreak = Math.max(currentStreak, r.currentStreak || 0);
+    longestStreak = Math.max(longestStreak, r.longestStreak || 0);
   });
-  if (routines) {
-    routines.forEach(r => {
-      const entry = r.history.find(h => h.date === todayStr);
-      if (entry && entry.status === 'completed') completedToday++;
-    });
-  }
-  
-  let pendingTasksCount = tasks.filter(t => !t.completed).length;
-  
-  let totalTimeLogged = 0;
-  tasks.forEach(t => {
-    if (t.completed && t.timeSpent) {
-      totalTimeLogged += t.timeSpent;
-    }
-  });
-  
-  const elLongestStreak = document.getElementById("insightLongestStreak");
-  if (elLongestStreak) elLongestStreak.textContent = `${longestStreak} 🔥`;
-  
-  const elCompletedToday = document.getElementById("insightCompletedToday");
-  if (elCompletedToday) elCompletedToday.textContent = completedToday;
-  
-  const elPendingTasks = document.getElementById("insightPendingTasks");
-  if (elPendingTasks) elPendingTasks.textContent = pendingTasksCount;
-  
-  const elTimeLogged = document.getElementById("insightTimeLogged");
-  if (elTimeLogged) {
-    // Also update the label text
-    const labelEl = elTimeLogged.previousElementSibling;
-    if (labelEl) labelEl.textContent = "Total Tracked Time";
-    
-    const hrs = Math.floor(totalTimeLogged / 60);
-    const mins = totalTimeLogged % 60;
-    if (hrs > 0) {
-      elTimeLogged.textContent = `${hrs}h ${mins}m`;
-    } else {
-      elTimeLogged.textContent = `${mins}m`;
-    }
-  }
-  
-  const todaysTasks = tasks.filter(t => t.dueDate && t.dueDate.startsWith(todayStr));
 
-  // Focus List (All tasks & routines category stats)
-  const categoryStats = {};
-  
-  // Include all tasks
-  tasks.forEach(t => {
-    if (t.category) {
-      const cat = t.category;
-      if(!categoryStats[cat]) categoryStats[cat] = { total: 0, completed: 0, timeSpent: 0 };
-      categoryStats[cat].total++;
-      if (t.completed) {
-        categoryStats[cat].completed++;
-        if (t.timeSpent) categoryStats[cat].timeSpent += t.timeSpent;
-      }
-    }
-  });
-  
-  // Include routines
-  if (routines) {
-    routines.forEach(r => {
-      if (r.category) {
-        const cat = r.category;
-        if(!categoryStats[cat]) categoryStats[cat] = { total: 0, completed: 0, timeSpent: 0 };
-        categoryStats[cat].total++;
-        
-        const entry = r.history.find(h => h.date === todayStr);
-        if (entry && entry.status === 'completed') categoryStats[cat].completed++;
-      }
-    });
+  const setText = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  };
+  setText("insightCompletedToday", finishedToday);
+  setText("insightCompletedTodaySub", `${tasksFinishedToday} tasks · ${routinesDoneToday} routines`);
+  setText("insightPendingTasks", pending);
+  setText("insightCarryOver", overdue);
+  setText("insightLongestStreak", currentStreak);
+  setText("insightStreakSub", routineList.length === 0 ? "Start a routine to build one" : (longestStreak > currentStreak ? `Best ever ${longestStreak} days` : "days in a row"));
+
+  if (overdue === 0) {
+    setText("insightFocusTitle", "No overdue tasks");
+    setText("insightFocusSub", "You're clear of yesterday's work.");
+  } else {
+    setText("insightFocusTitle", `${overdue} overdue task${overdue === 1 ? "" : "s"}`);
+    setText("insightFocusSub", "Open Tasks to clear them.");
   }
-  
 
-  // Update Carry Over
-  let carryOverCount = tasks.filter(t => !t.completed && t.dueDate && new Date(t.dueDate).getTime() < today.getTime()).length;
-  if(document.getElementById("insightCarryOver")) document.getElementById("insightCarryOver").textContent = `${carryOverCount} task${carryOverCount !== 1 ? 's' : ''}`;
-
-  // Update Top Category All-Time
-  let bestCat = "-";
-  let maxCompleted = 0;
-  const allTimeCatStats = {};
-  tasks.forEach(t => {
-    if(t.completed && t.category) {
-      allTimeCatStats[t.category] = (allTimeCatStats[t.category] || 0) + 1;
-    }
-  });
-  if (routines) {
-    routines.forEach(r => {
-      if (r.category) {
-        const comps = r.history.filter(h => h.status === 'completed').length;
-        if (comps > 0) {
-          allTimeCatStats[r.category] = (allTimeCatStats[r.category] || 0) + comps;
-        }
-      }
-    });
-  }
-  for(let cat in allTimeCatStats) {
-    if(allTimeCatStats[cat] > maxCompleted) {
-      maxCompleted = allTimeCatStats[cat];
-      bestCat = cat;
-    }
-  }
-  if(document.getElementById("insightTopCategoryName")) document.getElementById("insightTopCategoryName").textContent = bestCat;
-  if(document.getElementById("insightTopCategoryCount")) document.getElementById("insightTopCategoryCount").textContent = `${maxCompleted} completed`;
-
-
-  // Chart Data calculations
   const last7Days = [];
-  for(let i = 6; i >= 0; i--) {
-    let d = new Date(today);
-    d.setDate(today.getDate() - i);
-    const localDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    last7Days.push(localDateStr);
+  for (let i = 6; i >= 0; i--) {
+    const day = new Date(today);
+    day.setDate(today.getDate() - i);
+    last7Days.push(localDateKey(day));
   }
-
-  const labels = last7Days.map(d => {
-    const obj = new Date(d);
-    return `${obj.getDate()} ${obj.toLocaleString('default', { month: 'short' })}`;
-  });
-  
-  const tasksCompletionData = last7Days.map(dateStr => {
-    const dayTasks = tasks.filter(t => t.dueDate && t.dueDate.startsWith(dateStr));
-    if (dayTasks.length === 0) return 0;
-    const comp = dayTasks.filter(t => t.completed).length;
-    return Math.round((comp / dayTasks.length) * 100);
-  });
-  
-  const routinesCompletionData = last7Days.map(dateStr => {
-    if (!routines || routines.length === 0) return 0;
-    let comp = 0;
-    routines.forEach(r => {
-      const entry = r.history.find(h => h.date === dateStr);
-      if (entry && entry.status === 'completed') comp++;
+  const weekSet = new Set(last7Days);
+  const weekDays = last7Days.map(key => {
+    const [year, month, day] = key.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+    const dueTasks = tasks.filter(t => dueDay(t) === key);
+    const activeRoutines = routineList.filter(r => {
+      if (!r.createdAt) return true;
+      const created = new Date(r.createdAt);
+      return Number.isNaN(created.getTime()) || localDateKey(created) <= key;
     });
-    return Math.round((comp / routines.length) * 100);
-  });
-  
-  // Chart 1: Tasks Chart (Line)
-  const ctxTasks = document.getElementById('tasksChart');
-  if(tasksChartInst) { tasksChartInst.destroy(); }
-  if (ctxTasks) {
-    const gradient = ctxTasks.getContext('2d').createLinearGradient(0, 0, 0, 200);
-    gradient.addColorStop(0, 'rgba(172, 38, 48, 0.2)');
-    gradient.addColorStop(1, 'rgba(172, 38, 48, 0.0)');
-    tasksChartInst = new Chart(ctxTasks, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Task Completion %',
-          data: tasksCompletionData,
-          borderColor: '#ac2630',
-          backgroundColor: gradient,
-          borderWidth: 3,
-          fill: true,
-          tension: 0.3
-        }]
-      },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
-    });
-  }
-
-  // Chart 2: Routines Chart (Bar)
-  const ctxRoutines = document.getElementById('routinesChart');
-  if(routinesChartInst) { routinesChartInst.destroy(); }
-  if (ctxRoutines) {
-    routinesChartInst = new Chart(ctxRoutines, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Routine Completion %',
-          data: routinesCompletionData,
-          backgroundColor: '#3b82f6',
-          borderRadius: 4
-        }]
-      },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
-    });
-  }
-
-  // Chart 3: Categories Chart (Horizontal Bar)
-  const ctxCategories = document.getElementById('categoriesChart');
-  if(categoriesChartInst) { categoriesChartInst.destroy(); }
-  if (ctxCategories) {
-    const rawLabels = Object.keys(categoryStats);
-    const customLabelsPlugin = {
-      id: 'customDataLabels',
-      afterDatasetsDraw: (chart) => {
-        const ctx = chart.ctx;
-        ctx.save();
-        ctx.font = "600 13px Inter";
-        
-        // Read color from CSS variable for text-main, fallback to dark
-        const rootStyles = getComputedStyle(document.documentElement);
-        ctx.fillStyle = rootStyles.getPropertyValue('--text-main').trim() || '#3b1a1c';
-        ctx.textBaseline = "middle";
-        
-        const meta = chart.getDatasetMeta(0);
-        meta.data.forEach((bar, index) => {
-          const stat = Object.values(categoryStats)[index];
-          const time = stat.timeSpent || 0;
-          if (time > 0) {
-            const hrs = Math.floor(time / 60);
-            const mins = time % 60;
-            const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
-            ctx.fillText(timeStr, bar.x + 8, bar.y);
-          }
-        });
-        ctx.restore();
-      }
+    const planned = dueTasks.length + activeRoutines.length;
+    const done = dueTasks.filter(t => t.completed).length + activeRoutines.filter(r => routineDoneOn(r, key)).length;
+    return {
+      label: date.toLocaleDateString("en-US", { weekday: "short" }),
+      planned,
+      done,
+      pct: planned ? Math.round((done / planned) * 100) : 0,
+      isToday: key === todayStr
     };
-    
-    const catLabels = rawLabels.map(cat => {
-      const stat = categoryStats[cat];
-      return `${cat} (${stat.total} tasks)`;
-    });
-    
-    // Bar length is determined by timeSpent
-    const catData = Object.values(categoryStats).map(c => c.timeSpent || 0);
-    
-    if(catLabels.length > 0) {
-      categoriesChartInst = new Chart(ctxCategories, {
-        type: 'bar',
-        plugins: [customLabelsPlugin],
-        data: {
-          labels: catLabels,
-          datasets: [{
-            data: catData,
-            backgroundColor: ['#10b981', '#f59e0b', '#8b5cf6', '#ea580c', '#3b82f6'],
-            borderRadius: 6
-          }]
-        },
-        options: { 
-          indexAxis: 'y',
-          responsive: true, 
-          maintainAspectRatio: false, 
-          layout: {
-            padding: { right: 60 } // Extra padding for the text
-          },
-          plugins: { 
-            legend: { 
-              display: false
-            },
-            tooltip: {
-              enabled: false
-            }
-          },
-          scales: {
-            x: {
-              beginAtZero: true,
-              ticks: { precision: 0 }
-            }
-          }
-        }
-      });
+  });
+  const weekPlanned = weekDays.reduce((sum, day) => sum + day.planned, 0);
+  const weekDone = weekDays.reduce((sum, day) => sum + day.done, 0);
+  setText("insightWeekSummary", weekPlanned === 0 ? "Nothing was due this week." : `You finished ${weekDone} of ${weekPlanned} things due this week.`);
+  const weekBox = document.getElementById("weekProgress");
+  if (weekBox) {
+    weekBox.innerHTML = weekDays.map(day => `
+      <div class="week-day ${day.isToday ? "is-today" : ""}" title="${day.planned ? `${day.done} of ${day.planned} finished` : "Nothing due"}">
+        <span class="week-day-name">${day.label}</span>
+        <div class="week-day-track"><div class="week-day-fill" style="height:${day.pct}%"></div></div>
+        <strong>${day.planned ? `${day.done}/${day.planned}` : "—"}</strong>
+        <span class="week-day-count">${day.planned ? `${day.pct}%` : ""}</span>
+      </div>
+    `).join("");
+  }
+
+  const weekCats = {};
+  tasks.forEach(t => {
+    if (!t.category || !t.completed || !t.completedAt) return;
+    const completed = new Date(t.completedAt);
+    if (Number.isNaN(completed.getTime()) || !weekSet.has(localDateKey(completed))) return;
+    weekCats[t.category] = (weekCats[t.category] || 0) + 1;
+  });
+  routineList.forEach(r => {
+    if (!r.category) return;
+    const count = (r.history || []).filter(h => h.status === "completed" && weekSet.has(h.date)).length;
+    if (count) weekCats[r.category] = (weekCats[r.category] || 0) + count;
+  });
+  let bestCat = "";
+  let bestCount = 0;
+  Object.entries(weekCats).forEach(([cat, count]) => {
+    if (count > bestCount) {
+      bestCat = cat;
+      bestCount = count;
+    }
+  });
+  setText("insightTopCategoryName", bestCat || "—");
+  setText("insightTopCategoryCount", bestCat ? `${bestCount} finished this week` : "Nothing finished this week yet.");
+
+  const categoryStats = {};
+  tasks.forEach(t => {
+    const cat = t.category || "General";
+    if (!categoryStats[cat]) categoryStats[cat] = { total: 0, completed: 0 };
+    categoryStats[cat].total++;
+    if (t.completed) categoryStats[cat].completed++;
+  });
+  const categoryBox = document.getElementById("insightCategories");
+  if (categoryBox) {
+    const rows = Object.entries(categoryStats).sort((a, b) => b[1].completed - a[1].completed || b[1].total - a[1].total);
+    if (rows.length === 0) {
+      categoryBox.innerHTML = `<p class="insights-empty">Finish a task to see how your categories compare.</p>`;
     } else {
-      ctxCategories.getContext('2d').clearRect(0, 0, ctxCategories.width, ctxCategories.height);
+      categoryBox.innerHTML = rows.map(([name, stat]) => {
+        const pct = stat.total ? Math.round((stat.completed / stat.total) * 100) : 0;
+        return `<div class="insight-cat-row">
+          <div class="insight-cat-meta"><strong>${escapeInsightText(name)}</strong><span>${stat.completed} of ${stat.total}</span></div>
+          <div class="insight-cat-track"><div class="insight-cat-fill" style="width:${pct}%"></div></div>
+        </div>`;
+      }).join("");
     }
   }
+
 }
 
 window.onload = () => {
