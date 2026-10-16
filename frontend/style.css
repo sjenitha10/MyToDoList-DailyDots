@@ -613,6 +613,30 @@ body {
   background: #e5e7eb;
 }
 
+.task button.complete-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 2px solid var(--primary);
+  background: #fff;
+  color: var(--primary);
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.task button.complete-btn.done,
+.task button.complete-btn:hover {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.task button.complete-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+}
+
 .task button[title="Delete Task"]:hover {
   background: #fee2e2;
   color: var(--accent);
@@ -1139,26 +1163,6 @@ body {
   border: none;
   box-shadow: 0 4px 16px rgba(0,0,0,0.03);
 }
-.pill-filters {
-  display: flex;
-  gap: 8px;
-}
-.pill-filters span {
-  padding: 6px 16px;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 500;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  border: 1px solid transparent;
-}
-.pill-filters span.active {
-  background: var(--input-bg);
-  color: var(--text-main);
-  border-color: var(--border);
-}
-
 /* Tasks Grid Layout */
 .orderly-tasks {
   display: flex;

@@ -233,8 +233,30 @@ async function addTask() {
   } catch (err) { alert("Failed to add task 🌸"); }
 }
 
-// --- ADD TASK MODAL LOGIC ---
+// --- ADD / EDIT TASK MODAL LOGIC ---
+let editingTaskId = null;
+
+function toDateInputValue(value) {
+  if (!value) return "";
+  const match = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
+  if (match) return match[1];
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function setTaskModalMode(mode) {
+  const isEdit = mode === "edit";
+  document.getElementById("taskModalHeading").textContent = isEdit ? "Edit Task" : "Add Task";
+  document.getElementById("taskModalSubheading").textContent = isEdit ? "Update any of the details below." : "Keep going, you got this!";
+  document.getElementById("modalTimeSpentWrap").style.display = isEdit ? "flex" : "none";
+  document.getElementById("taskModalSubmitLabel").textContent = isEdit ? "Save Changes" : "Add Task";
+}
+
 function openAddTaskModal() {
+  editingTaskId = null;
+  setTaskModalMode("add");
+
   const today = new Date();
   const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   
@@ -250,12 +272,19 @@ function openAddTaskModal() {
   if(priText) priText.innerText = "Medium";
 
   document.getElementById("modalTaskDesc").value = "";
+  document.getElementById("modalTaskTimeSpent").value = "";
+  document.getElementById("customCategoryList").style.display = "none";
+  document.getElementById("customPriorityList").style.display = "none";
   
   document.getElementById("addTaskModal").style.display = "flex";
+  document.getElementById("modalTaskTitle").focus();
 }
 
 function closeAddTaskModal() {
   document.getElementById("addTaskModal").style.display = "none";
+  document.getElementById("customCategoryList").style.display = "none";
+  document.getElementById("customPriorityList").style.display = "none";
+  editingTaskId = null;
 }
 
 let isSubmittingTask = false;
@@ -264,8 +293,8 @@ async function submitModalTask() {
   
   const title = document.getElementById("modalTaskTitle").value.trim();
   const dueDate = document.getElementById("modalTaskDue").value;
-  const category = document.getElementById("modalTaskCategoryText").innerText;
-  const priority = document.getElementById("modalTaskPriorityText").innerText.toLowerCase();
+  const category = document.getElementById("modalTaskCategoryText").innerText.trim();
+  const priority = document.getElementById("modalTaskPriorityText").innerText.trim().toLowerCase();
   const description = document.getElementById("modalTaskDesc").value.trim();
 
   if (!title) {
@@ -274,18 +303,31 @@ async function submitModalTask() {
   }
 
   const userId = localStorage.getItem("userId");
-  const task = { title, description, category, dueDate, completed: false, userId, priority };
+  const task = { title, description, category, dueDate, priority };
+  const taskId = editingTaskId;
+
+  if (taskId) {
+    task.timeSpent = parseInt(document.getElementById("modalTaskTimeSpent").value, 10) || 0;
+  } else {
+    task.completed = false;
+    task.userId = userId;
+  }
   
   isSubmittingTask = true;
   try {
-    await fetch(`${API_BASE}/tasks`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
+    const res = await fetch(taskId ? `${API_BASE}/tasks/${taskId}` : `${API_BASE}/tasks`, {
+      method: taskId ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(task)
     });
+    if (!res.ok) throw new Error("Save failed");
     closeAddTaskModal();
-    loadTasks();
-  } catch (err) { alert("Failed to add task 🌸"); }
-  isSubmittingTask = false;
+    await loadTasks();
+  } catch (err) {
+    alert(taskId ? "Failed to update task 🌸" : "Failed to add task 🌸");
+  } finally {
+    isSubmittingTask = false;
+  }
 }
 
 // --- RENDER TASKS (MAIN) ---
@@ -300,6 +342,34 @@ function getPriority(dateString) {
   if (diffDays <= 2) return "high";
   if (diffDays <= 7) return "medium";
   return "low";
+}
+
+function taskPriority(task) {
+  const stored = task && task.priority ? String(task.priority).toLowerCase() : "";
+  if (stored === "high" || stored === "medium" || stored === "low") return stored;
+  return getPriority(task && task.dueDate);
+}
+
+function completedBeforeToday(task) {
+  if (!task || !task.completed || !task.completedAt) return false;
+  const completedDate = new Date(task.completedAt);
+  if (Number.isNaN(completedDate.getTime())) return false;
+  completedDate.setHours(0, 0, 0, 0);
+  const todayDate = new Date();
+  todayDate.setHours(0, 0, 0, 0);
+  return completedDate.getTime() < todayDate.getTime();
+}
+
+function scheduleEndOfDayRefresh() {
+  const now = new Date();
+  const nextMidnight = new Date(now);
+  nextMidnight.setHours(24, 0, 0, 0);
+  const delay = Math.max(nextMidnight.getTime() - now.getTime(), 1000);
+  setTimeout(() => {
+    renderTasks();
+    renderOverview();
+    scheduleEndOfDayRefresh();
+  }, delay);
 }
 
 function renderTasks() {
@@ -335,7 +405,7 @@ function renderTasks() {
     const due = new Date(task.dueDate);
     due.setHours(0, 0, 0, 0);
     const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    const priority = getPriority(task.dueDate);
+    const priority = taskPriority(task);
 
     if (searchQuery && !(task.title || "").toLowerCase().includes(searchQuery)) return;
     if (filterStatus === "active" && task.completed) return;
@@ -343,23 +413,7 @@ function renderTasks() {
     if (filterCategory !== "all" && task.category !== filterCategory) return;
     if (filterPriority !== "all" && priority !== filterPriority) return;
 
-    if (task.completed) {
-      if (!task.completedAt) return; // Hide immediately if no timestamp
-      const completedDate = new Date(task.completedAt);
-      completedDate.setHours(0, 0, 0, 0);
-      const todayDate = new Date();
-      todayDate.setHours(0, 0, 0, 0);
-      
-      // Hide if completed on a previous day
-      if (completedDate.getTime() < todayDate.getTime()) {
-        return;
-      }
-
-      const completedTimeMs = new Date(task.completedAt).getTime();
-      if (filterStatus !== "completed" && new Date().getTime() - completedTimeMs > 15 * 60 * 1000) {
-        return; // Hide completed tasks older than 15 mins from grid unless explicitly filtering by completed
-      }
-    }
+    if (completedBeforeToday(task)) return;
 
     const div = document.createElement("div");
     div.className = `task ${task.completed ? 'completed' : ''}`;
@@ -381,13 +435,13 @@ function renderTasks() {
         </div>
       </div>
       <div class="buttons" style="margin-left:16px;">
-        <button onclick="event.stopPropagation(); toggleComplete('${task._id}')" title="Mark as Done" style="border: 2px solid ${task.completed ? 'var(--primary)' : 'var(--border)'}; background: ${task.completed ? 'var(--primary)' : 'transparent'}; color: ${task.completed ? '#fff' : 'transparent'}; width: 24px; height: 24px; border-radius: 6px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
-          <i data-lucide="check" style="width:14px; height:14px; opacity: ${task.completed ? '1' : '0'};"></i>
+        <button class="complete-btn ${task.completed ? 'done' : ''}" onclick="event.stopPropagation(); toggleComplete('${task._id}')" title="${task.completed ? 'Completed' : 'Mark as Done'}">
+          ${task.completed ? '<i data-lucide="check"></i>' : ''}
         </button>
       </div>
     `;
 
-    if (task.completed) {
+    if (filterStatus === "completed") {
       if(completedList) completedList.appendChild(div);
       counts.completed++;
     } else if (diffDays < 0) {
@@ -413,30 +467,28 @@ function renderTasks() {
       if (filterCategory !== "all" && r.category !== filterCategory) return;
       if (filterPriority !== "all") return;
       
-      if (!isCompleted) {
-        const div = document.createElement("div");
-        div.className = `task`;
-        div.style.cursor = "pointer";
-        div.onclick = (e) => {
-          if(!e.target.closest('button')) switchView('routines');
-        };
-        div.innerHTML = `
-          <div style="flex:1;">
-            <strong>${r.icon} ${r.title}</strong>
-            <div style="margin-top: 8px;">
-              <span class="category-badge" style="background:var(--bg-main); color:var(--text-muted); border: 1px solid var(--border);">Routine</span>
-              ${r.category ? `<span class="category-badge">${r.category}</span>` : ""}
-            </div>
+      const div = document.createElement("div");
+      div.className = `task ${isCompleted ? 'completed' : ''}`;
+      div.style.cursor = "pointer";
+      div.onclick = (e) => {
+        if(!e.target.closest('button')) switchView('routines');
+      };
+      div.innerHTML = `
+        <div style="flex:1;">
+          <strong>${r.icon} ${r.title}</strong>
+          <div style="margin-top: 8px;">
+            <span class="category-badge" style="background:var(--bg-main); color:var(--text-muted); border: 1px solid var(--border);">Routine</span>
+            ${r.category ? `<span class="category-badge">${r.category}</span>` : ""}
           </div>
-          <div class="buttons" style="margin-left:16px;">
-            <button onclick="event.stopPropagation(); completeRoutine('${r._id}');" title="Mark as Done" style="border: 2px solid var(--border); background: transparent; color: transparent; width: 24px; height: 24px; border-radius: 6px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
-              <i data-lucide="check" style="width:14px; height:14px; opacity: 0;"></i>
-            </button>
-          </div>
-        `;
-        if(routineList) routineList.appendChild(div);
-        counts.routines++;
-      }
+        </div>
+        <div class="buttons" style="margin-left:16px;">
+          <button class="complete-btn ${isCompleted ? 'done' : ''}" onclick="event.stopPropagation(); ${isCompleted ? '' : `completeRoutine('${r._id}');`}" title="${isCompleted ? 'Completed' : 'Mark as Done'}">
+            ${isCompleted ? '<i data-lucide="check"></i>' : ''}
+          </button>
+        </div>
+      `;
+      if(routineList) routineList.appendChild(div);
+      counts.routines++;
     });
   }
 
@@ -607,7 +659,7 @@ function renderOverview() {
                 <span style="font-size:12px; color:var(--text-muted);">${new Date(t.dueDate).toLocaleDateString('en-US', {month:'short', day:'numeric'})}</span>
               </div>
             </div>
-            <span class="category-badge" style="background:var(--bg-main); color:var(--primary); margin:0;">${getPriority(t.dueDate)}</span>
+            <span class="category-badge" style="background:var(--bg-main); color:var(--primary); margin:0;">${taskPriority(t)}</span>
           </div>
         `;
       });
@@ -618,21 +670,14 @@ function renderOverview() {
   const dashToday = document.getElementById("dashTodayTasks");
   if(dashToday) {
     dashToday.innerHTML = "";
-    const visibleTodayTasks = todaysTasks.filter(task => {
-      if (task.completed) {
-        if (!task.completedAt) return false;
-        const completedTime = new Date(task.completedAt).getTime();
-        return (new Date().getTime() - completedTime <= 15 * 60 * 1000);
-      }
-      return true;
-    });
+    const visibleTodayTasks = todaysTasks.filter(task => !completedBeforeToday(task));
     visibleTodayTasks.slice(0,3).forEach(task => {
       dashToday.innerHTML += `
         <div class="task ${task.completed?'completed':''}" style="padding:16px;" onclick="openTaskDetails('${task._id}')">
-          <div class="priority-dot dot-${getPriority(task.dueDate)}"></div>
+          <div class="priority-dot dot-${taskPriority(task)}"></div>
           <div style="display:flex; align-items:center; gap:16px;">
-            <button onclick="event.stopPropagation(); toggleComplete('${task._id}')" style="border: 2px solid ${task.completed ? 'var(--primary)' : 'var(--border)'}; background: ${task.completed ? 'var(--primary)' : 'transparent'}; color: ${task.completed ? '#fff' : 'transparent'}; width: 24px; height: 24px; border-radius: 6px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
-              <i data-lucide="check" style="width:14px; height:14px; opacity: ${task.completed ? '1' : '0'};"></i>
+            <button class="complete-btn ${task.completed ? 'done' : ''}" onclick="event.stopPropagation(); toggleComplete('${task._id}')" title="${task.completed ? 'Completed' : 'Mark as Done'}">
+              ${task.completed ? '<i data-lucide="check"></i>' : ''}
             </button>
             <div>
               <strong>${task.title}</strong>
@@ -653,7 +698,7 @@ function openTaskDetails(id) {
   if(!task) return;
   document.getElementById("panelTitle").textContent = task.title;
   document.getElementById("panelDesc").textContent = task.description || "No description provided.";
-  document.getElementById("panelPriority").textContent = getPriority(task.dueDate).toUpperCase();
+  document.getElementById("panelPriority").textContent = taskPriority(task).toUpperCase();
   document.getElementById("panelCategory").textContent = task.category || "General";
   document.getElementById("panelDue").textContent = new Date(task.dueDate).toLocaleDateString("en-US", { day: 'numeric', month: 'short', year: 'numeric' });
   document.getElementById("panelCreated").textContent = new Date(task.createdAt).toLocaleDateString("en-US", { day: 'numeric', month: 'short', year: 'numeric' });
@@ -768,6 +813,7 @@ function openAddRoutineModal() {
   document.getElementById("routineTitle").value = "";
   document.getElementById("routineIcon").value = "💧";
   document.getElementById("addRoutineModal").style.display = "flex";
+  document.getElementById("routineTitle").focus();
 }
 
 function closeAddRoutineModal() {
@@ -818,31 +864,63 @@ async function deleteRoutine(id) {
 // --- API ACTIONS ---
 async function toggleComplete(id) {
   const task = tasks.find(t => t._id === id);
+  if (!task) return;
+  const completed = !task.completed;
+  const previousCompleted = task.completed;
+  const previousCompletedAt = task.completedAt;
+  task.completed = completed;
+  task.completedAt = completed ? new Date().toISOString() : null;
+  renderTasks();
+  renderOverview();
   try {
-    await fetch(`${API_BASE}/tasks/${id}`, {
+    const res = await fetch(`${API_BASE}/tasks/${id}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        completed: !task.completed,
-        completedAt: !task.completed ? new Date().toISOString() : null
+      body: JSON.stringify({
+        completed,
+        completedAt: task.completedAt
       })
     });
+    if (!res.ok) throw new Error("Update failed");
     loadTasks();
-  } catch (err) { console.error(err); }
+  } catch (err) {
+    task.completed = previousCompleted;
+    task.completedAt = previousCompletedAt;
+    renderTasks();
+    renderOverview();
+    console.error(err);
+  }
 }
 
-async function editTask(id) {
+function editTask(id) {
   const task = tasks.find(t => t._id === id);
-  const newTitle = prompt("Edit Task Title:", task.title);
-  if (newTitle === null) return;
-  const newDesc = prompt("Edit Task Description:", task.description || "");
-  try {
-    await fetch(`${API_BASE}/tasks/${id}`, {
-      method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: newTitle.trim(), description: newDesc.trim() })
-    });
-    closeTaskDetails();
-    loadTasks();
-  } catch (err) { console.error(err); }
+  if (!task) return;
+
+  editingTaskId = id;
+  setTaskModalMode("edit");
+
+  document.getElementById("modalTaskTitle").value = task.title || "";
+  const dateInput = document.getElementById("modalTaskDue");
+  dateInput.value = toDateInputValue(task.dueDate);
+  dateInput.removeAttribute("min");
+
+  const catText = document.getElementById("modalTaskCategoryText");
+  if (catText) catText.innerText = task.category || "💼 Work";
+
+  const priText = document.getElementById("modalTaskPriorityText");
+  if (priText) {
+    const priority = taskPriority(task);
+    priText.innerText = priority.charAt(0).toUpperCase() + priority.slice(1);
+  }
+
+  document.getElementById("modalTaskDesc").value = task.description || "";
+  document.getElementById("modalTaskTimeSpent").value = task.timeSpent || 0;
+  document.getElementById("customCategoryList").style.display = "none";
+  document.getElementById("customPriorityList").style.display = "none";
+
+  document.getElementById("taskDetailsPanel").style.right = "-450px";
+  document.getElementById("taskDetailsOverlay").style.display = "none";
+  document.getElementById("addTaskModal").style.display = "flex";
+  if (window.lucide) lucide.createIcons();
 }
 
 async function saveTimeSpent(id) {
@@ -934,6 +1012,18 @@ function updateDailyThought() {
 
 
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.target.closest('button')) {
+    const taskModal = document.getElementById('addTaskModal');
+    const routineModal = document.getElementById('addRoutineModal');
+    const taskOpen = taskModal && taskModal.style.display === 'flex';
+    const routineOpen = routineModal && routineModal.style.display === 'flex';
+    if (taskOpen || routineOpen) {
+      e.preventDefault();
+      if (taskOpen) submitModalTask();
+      else submitRoutine();
+      return;
+    }
+  }
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
     if (e.key === 'Escape') { e.target.blur(); document.getElementById('shortcutsHelp').style.display = 'none'; closeAddRoutineModal(); closeTaskDetails(); }
     return;
@@ -947,25 +1037,63 @@ document.addEventListener('keydown', (e) => {
 
 // --- CALENDAR LOGIC ---
 let calDate = new Date();
-const southIndianHolidays = {
+
+// Dates that stay the same every year.
+const fixedHolidays = {
   "01-01": "New Year's Day",
-  "01-14": "Bhogi",
-  "01-15": "Pongal / Makar Sankranti",
-  "01-16": "Thiruvalluvar Day / Mattu Pongal",
-  "01-17": "Uzhavar Thirunal",
   "01-26": "Republic Day",
-  "04-14": "Tamil New Year / Vishu",
+  "04-14": "Tamil New Year",
   "05-01": "May Day",
   "08-15": "Independence Day",
-  "08-25": "Onam (Varies, approx)",
-  "09-06": "Krishna Jayanthi (Varies, approx)",
-  "09-15": "Milad-un-Nabi",
   "10-02": "Gandhi Jayanti",
-  "10-21": "Ayudha Pooja",
-  "10-22": "Vijaya Dasami",
-  "10-31": "Diwali",
   "12-25": "Christmas"
 };
+
+// Lunar festivals shift each year. Dates follow the Tamil Nadu holiday lists.
+const yearHolidays = {
+  2025: {
+    "01-13": "Bhogi",
+    "01-14": "Pongal",
+    "01-15": "Thiruvalluvar Day",
+    "01-16": "Uzhavar Thirunal",
+    "08-16": "Krishna Jayanthi",
+    "09-05": "Onam / Milad-un-Nabi",
+    "10-01": "Ayudha Pooja",
+    "10-02": "Vijaya Dasami",
+    "10-20": "Diwali"
+  },
+  2026: {
+    "01-14": "Bhogi",
+    "01-15": "Pongal",
+    "01-16": "Thiruvalluvar Day",
+    "01-17": "Uzhavar Thirunal",
+    "08-26": "Onam / Milad-un-Nabi",
+    "09-04": "Krishna Jayanthi",
+    "10-19": "Ayudha Pooja",
+    "10-20": "Vijaya Dasami",
+    "11-08": "Diwali"
+  },
+  2027: {
+    "01-14": "Bhogi",
+    "01-15": "Pongal",
+    "01-16": "Thiruvalluvar Day",
+    "01-17": "Uzhavar Thirunal",
+    "08-15": "Milad-un-Nabi",
+    "08-25": "Krishna Jayanthi",
+    "09-12": "Onam",
+    "10-08": "Ayudha Pooja",
+    "10-09": "Vijaya Dasami",
+    "10-29": "Diwali"
+  }
+};
+
+function holidayOn(year, monthDay) {
+  const names = [];
+  if (fixedHolidays[monthDay]) names.push(fixedHolidays[monthDay]);
+  const extra = yearHolidays[year] && yearHolidays[year][monthDay];
+  if (extra) names.push(extra);
+  return names.join(" / ");
+}
 
 function changeCalendarMonth(delta) {
   calDate.setMonth(calDate.getMonth() + delta);
@@ -1006,10 +1134,10 @@ function renderFullCalendar() {
     
     let eventsHtml = "";
     
-    // Check for holiday
-    if(southIndianHolidays[mdStr]) {
-      eventsHtml += `<div class="calendar-event calendar-holiday" title="${southIndianHolidays[mdStr]}"><span class="holiday-desktop">${southIndianHolidays[mdStr]}</span><span class="holiday-mobile">★ Holiday</span></div>`;
-      if (typeof monthHolidays !== 'undefined') monthHolidays.push({ date: i, name: southIndianHolidays[mdStr] });
+    const holiday = holidayOn(year, mdStr);
+    if (holiday) {
+      eventsHtml += `<div class="calendar-event calendar-holiday" title="${holiday}"><span class="holiday-desktop">${holiday}</span><span class="holiday-mobile">★ Holiday</span></div>`;
+      monthHolidays.push({ date: i, name: holiday });
     }
     
     // Check for tasks
@@ -1041,7 +1169,7 @@ function renderFullCalendar() {
   const holidaysList = document.getElementById("calendarHolidaysList");
   if(holidaysList) {
     if(monthHolidays.length > 0) {
-      let html = `<h4 style="font-size:16px; color:var(--text-main); margin-bottom:8px;">Holidays in ${currentMonth.toLocaleDateString('en-US', { month: 'long' })}</h4>`;
+      let html = `<h4 style="font-size:16px; color:var(--text-main); margin-bottom:8px;">Holidays in ${calDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h4>`;
       monthHolidays.forEach(h => {
         html += `<div style="background:var(--card-bg); border:1px solid var(--border); padding:12px 16px; border-radius:12px; display:flex; align-items:center; gap:12px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
                    <div style="background:var(--primary); color:#fff; width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex-shrink:0;">${h.date}</div>
@@ -1059,15 +1187,6 @@ function renderFullCalendar() {
 let tasksChartInst;
 let routinesChartInst;
 let categoriesChartInst;
-let insightsFilter = 'tasks';
-
-function setInsightsFilter(filter) {
-  insightsFilter = filter;
-  document.getElementById('filterInsightsTasks').classList.toggle('active', filter === 'tasks');
-  document.getElementById('filterInsightsRoutines').classList.toggle('active', filter === 'routines');
-  renderAnalytics();
-}
-
 function renderAnalytics() {
   if (typeof Chart === 'undefined') {
     console.error("Chart.js not loaded.");
@@ -1356,6 +1475,7 @@ window.onload = () => {
   if (localStorage.getItem("token")) initApp();
   else { document.getElementById("authPage").style.display = "flex"; document.getElementById("app").style.display = "none"; }
   updateDailyThought();
+  scheduleEndOfDayRefresh();
 };
 
 window.addEventListener('click', () => {
